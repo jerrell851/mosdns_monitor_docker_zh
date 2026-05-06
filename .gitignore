@@ -1,8 +1,6 @@
 *.log
 *.bak
 config_custom.yaml
-claude.md
-.claude/
 # 忽略所有 .exe 执行文件，但排除（不忽略） build.exe
 *.exe
 !build.exe
