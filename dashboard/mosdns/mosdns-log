@@ -1,0 +1,42 @@
+#!/bin/sh /etc/rc.common
+# ============================================================
+# OpenWrt 路由器端 mosdns 日志转发 (procd 管理, 断线自动重连)
+#
+# 安装方法 (在 OpenWrt 路由器上):
+#   1. opkg update && opkg install socat
+#   2. 将此脚本复制到 /etc/init.d/mosdns-log
+#   3. chmod +x /etc/init.d/mosdns-log
+#   4. /etc/init.d/mosdns-log enable
+#   5. /etc/init.d/mosdns-log start
+# ============================================================
+
+USE_PROCD=1
+START=90
+STOP=10
+
+DOCKER_HOST="192.168.11.200"
+DOCKER_PORT="9010"
+LOG_FILE="/var/log/mosdns.log"
+
+start_service() {
+    killall tail 2>/dev/null
+    killall socat 2>/dev/null
+    sleep 1
+
+    procd_open_instance
+    procd_set_param command /bin/sh -c "
+        while [ ! -f ${LOG_FILE} ]; do
+            sleep 5
+        done
+        tail -n 0 -f ${LOG_FILE} | while IFS= read -r line; do
+            echo \"\$line\" | socat -u - TCP:${DOCKER_HOST}:${DOCKER_PORT}
+        done
+    "
+    procd_set_param respawn 300 5 10
+    procd_close_instance
+}
+
+stop_service() {
+    killall tail 2>/dev/null
+    killall socat 2>/dev/null
+}

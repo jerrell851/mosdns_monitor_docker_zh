@@ -1,0 +1,95 @@
+# ============================================================
+# vector.yml — mosdns 日志采集 + 中文映射
+#
+# 端口与 .env 变量对应:
+#   VECTOR_LOG_PORT  → address 监听端口
+#   LOKI_PORT        → loki endpoint 端口
+# ============================================================
+
+data_dir: /tmp/vector
+
+sources:
+  mosdns-log-socket:
+    type: socket
+    address: "0.0.0.0:${VECTOR_LOG_PORT}"
+    mode: tcp
+    decoding:
+      codec: bytes
+    framing:
+      method: bytes
+      byte_delimiters:
+        - "\n"
+
+transforms:
+  mosdns-data:
+    type: remap
+    inputs:
+      - mosdns-log-socket
+    drop_on_error: false
+    source: |
+      .app = "mosdns"
+      if exists(.host) { del(.host) }
+      if exists(.file) { del(.file) }
+      if exists(.source_type) { del(.source_type) }
+      raw = to_string!(.message)
+      message_parts = split(raw, r'\t')
+      if length(message_parts) < 4 {
+        abort
+      }
+      .timestamp = parse_timestamp(message_parts[0], "%F %T") ?? now()
+      .level = message_parts[1]
+      .meta = ""
+      if length(message_parts) == 6 {
+        .plugin = message_parts[2]
+        .processor = message_parts[3]
+        .message = message_parts[4]
+        .meta = message_parts[5]
+      } else {
+        .processor = message_parts[2]
+        .message = message_parts[3]
+        if length(message_parts) >= 5 {
+          .meta = message_parts[4]
+        }
+      }
+      if .meta != "" {
+        md = parse_json(.meta) ?? null
+        if md != null {
+          . = merge!(., md)
+        }
+      }
+      del(.meta)
+
+  mosdns-chinese:
+    type: remap
+    inputs:
+      - mosdns-data
+    source: |
+      zh = {
+        "forward_local": "本地查询",
+        "forward_remote": "远程查询",
+        "forward_stream_media": "流媒体查询",
+        "fallback_remote": "备用查询",
+        "hosts": "Hosts解析",
+        "cache": "缓存命中",
+        "redirect": "重定向",
+        "reject_blocklist": "黑名单拒绝",
+        "reject_local_ptr": "本地反向拒绝",
+        "reject_https": "HTTPS拒绝",
+        "entry err": "入口错误",
+        "secondary error": "备用错误",
+        "primary error": "主查询错误",
+        "upstream error": "上游错误"
+      }
+      .message_zh = get(zh, [.message]) ?? .message
+      if .message_zh == .message && starts_with(string!(.message), "reject_") {
+        .message_zh = replace(string!(.message), "reject_", "拒绝-")
+      }
+
+sinks:
+  events_file:
+    type: file
+    inputs:
+      - mosdns-chinese
+    path: /tmp/vector/events.json
+    encoding:
+      codec: json
