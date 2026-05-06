@@ -1,15 +1,22 @@
+![运行效果](./Screenshot.jpeg)
+
 # mosdns — DNS 转发器 + Grafana 监控方案
 Mosdns：https://github.com/IrineSistiana/mosdns
+
 luci-app-mosdns：https://github.com/sbwml/luci-app-mosdns
+
 icyleaf vector + loki 实现 mosdns 数据看板：https://icyleaf.com/2023/08/using-vector-transform-mosdns-logging-to-grafana-via-loki/#prometheus
+
 mosdns_docker：https://github.com/Jasper-1024/mosdns_docker
+
 cloudflare优选IP：https://github.com/XIU2/CloudflareSpeedTest
 
 基于 [mosdns](https://github.com/IrineSistiana/mosdns) v5 的 DNS 分流部署方案。在Jasper-1024的Docker版及icyleaf的vector + loki 实现 mosdns 数据看板资料上进行的二创，实现在 OpenWrt 路由器上运行 mosdns，通过 Docker Compose 一键部署 Loki + Prometheus + Grafana 监控栈，实时查看 DNS 查询日志、指标监控和 Grafana 可视化面板。默认配置已测试DNS 300次TEST无泄漏。
+
 项目采用监控面板Docker，Mosdns分布式部署，解决路由器容量空间受限导致Docker运行困难，环境混乱等问题，二创同时完成汉化及增加性能面板等。运行效果可看 Screenshot.jpeg。
 
 代码助手：DeepseekV4Pro
-
+<img>
 ## 架构
 
 ```text
@@ -85,8 +92,11 @@ unzip mosdns-linux-amd64.zip -d /usr/bin/
 chmod +x /usr/bin/mosdns
 ```
 建议安装luci-app-mosdns：https://github.com/sbwml/luci-app-mosdns，配合其“自定义配置”功能及“GeoData导出”功能使用。这样可以跳过上传规则文件和数据文件。
+
 GeoData导出GeoSite标签：cn,gfw,apple,category-ads-all,geolocation-!cn,disney,hulu,netflix
+
 GeoData导出GeoIP标签：cn,private
+
 
 更新广告规则、GeoIP & GeoSite 数据库的时间根据自己喜欢来定。
 
