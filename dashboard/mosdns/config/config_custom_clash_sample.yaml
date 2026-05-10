@@ -1,15 +1,14 @@
 # ============================================================================
-# mosdns DNS 分流配置
+# mosdns DNS 分流配置 (系统前端)
 # 二创设计：Jerrell
-# 部署位置: 重命名为 config_custom.yaml 后部署到 /etc/mosdns/
-# 注意: 此为脱敏示例，部署前需修改 forward_local DNS 和 black_hole IP
-# 监听端口: 0.0.0.0:5335 (UDP+TCP)
+# 部署位置: OpenWrt 路由器 /etc/mosdns/config_custom_clash.yaml
+# 监听端口: 0.0.0.0:53 (UDP+TCP)
 # API 端点: 0.0.0.0:8338 (Prometheus metrics + REST)
 #
 # 分流逻辑 (main_sequence 执行顺序):
 #   拒绝类 → 广告拦截 → hosts 本地 → redirect 重定向 → 缓存查找
 #   → Apple 国内优选 → DDNS 强制本地 → 白名单本地 → 流媒体专用线路
-#   → 灰名单远程 → 国内域名本地 → 国外域名远程 → 兜底 Google/Cloudflare 竞速
+#   → 灰名单远程 → 国内域名本地 → 国外域名远程 → 兜底 Clash DNS
 #
 # 拒绝最先执行：已知恶意/无用域名直接杀掉，避免浪费后续步骤的计算资源。
 #
@@ -49,7 +48,7 @@ plugins:
     args:
       files: ["/var/mosdns/geosite_apple.txt"]
 
-  # 非国内域名 — 直接走 Google/Cloudflare 远程 DNS
+  # 非国内域名 — 直接走 Clash DNS 远程解析
   - tag: geosite_no_cn
     type: domain_set
     args:
@@ -147,31 +146,22 @@ plugins:
         - addr: "114.114.114.114"
         - addr: "114.114.115.115"
 
-  # 国内 DNS 池 — 用于国内域名、白名单、DDNS
+  # 国内 DNS 池 — 替换为你的运营商 DNS 以获得最快 CDN
   - tag: forward_local
     type: forward
     args:
       concurrent: 2
       upstreams:
-        - addr: "223.5.5.5"       # 替换为你的运营商 DNS 以获得最快 CDN
+        - addr: "223.5.5.5"
         - addr: "119.29.29.29"
 
-  # 国外 DNS 双上游 (Google + Cloudflare) — 非国内域名、灰名单使用
+  # Clash DNS 上游 — 非国内域名、灰名单使用
   - tag: forward_remote
     type: forward
     args:
-      concurrent: 2
+      concurrent: 1
       upstreams:
-        - addr: "https://8.8.8.8/dns-query"
-          bootstrap: "223.5.5.5"
-          enable_pipeline: false
-          insecure_skip_verify: false
-          idle_timeout: 30
-        - addr: "https://1.1.1.1/dns-query"
-          bootstrap: "223.5.5.5"
-          enable_pipeline: false
-          insecure_skip_verify: false
-          idle_timeout: 30
+        - addr: "127.0.0.1:7874"
 
   - tag: forward_remote_upstream
     type: sequence
@@ -179,42 +169,29 @@ plugins:
       - exec: prefer_ipv4
       - exec: $forward_remote
 
-  # Google DNS only — fallback 主查询
-  # 与 forward_remote 的 8.8.8.8 参数一致，但单独拆分以便独立用作 primary
+  # Clash DNS only — fallback 主查询
   - tag: forward_google
     type: forward
     args:
       concurrent: 1
       upstreams:
-        - addr: "https://8.8.8.8/dns-query"
-          bootstrap: "223.5.5.5"
-          enable_pipeline: false
-          insecure_skip_verify: false
-          idle_timeout: 30
+        - addr: "127.0.0.1:7874"
 
-  # Cloudflare DNS only — fallback 备查询
+  # Clash DNS only — fallback 备查询
   - tag: forward_cloudflare
     type: forward
     args:
       concurrent: 1
       upstreams:
-        - addr: "https://1.1.1.1/dns-query"
-          bootstrap: "223.5.5.5"
-          enable_pipeline: false
-          insecure_skip_verify: false
-          idle_timeout: 30
+        - addr: "127.0.0.1:7874"
 
-  # 流媒体专用 DNS (仅 8.8.8.8) — 避免 1.1.1.1 返回被屏蔽 IP
+  # 流媒体专用 Clash DNS
   - tag: forward_stream_media
     type: forward
     args:
       concurrent: 2
       upstreams:
-        - addr: "https://8.8.8.8/dns-query"
-          bootstrap: "223.5.5.5"
-          enable_pipeline: false
-          insecure_skip_verify: false
-          idle_timeout: 30
+        - addr: "127.0.0.1:7874"
 
   - tag: forward_stream_media_upstream
     type: sequence
@@ -271,15 +248,26 @@ plugins:
       - exec: query_summary forward_local
       - exec: $forward_local
 
+  # AAAA (qtype 28) 拦截 — 走 Clash DNS 前拦截，防止 IPv6 DNS 泄露
+  - tag: reject_aaaa
+    type: sequence
+    args:
+      - exec: query_summary reject_aaaa
+      - exec: reject 3
+
   - tag: forward_remote_seq
     type: sequence
     args:
+      - matches: qtype 28
+        exec: $reject_aaaa
       - exec: query_summary forward_remote
       - exec: $forward_remote_upstream
 
   - tag: forward_stream_media_seq
     type: sequence
     args:
+      - matches: qtype 28
+        exec: $reject_aaaa
       - exec: query_summary forward_stream_media
       - exec: $forward_stream_media_upstream
 
@@ -365,7 +353,7 @@ plugins:
   # apple_domain_fallback:
   #   primary: 用本地 DNS 查询 → 检查响应 IP 是否国内 → 非国内则 drop
   #   secondary: 114 DNS 直接返回（国内 DNS 不可靠时的备用）
-  #   always_standby: true → primary 响应超 100ms 时并行发 secondary
+  #   always_standby: false → primary 超时或失败后才发 secondary（避免 114 明文泄漏）
   # =========================================================================
 
   - tag: query_is_non_local_ip
@@ -381,21 +369,20 @@ plugins:
       primary: query_is_non_local_ip
       secondary: forward_xinfeng_udp_seq
       threshold: 100
-      always_standby: true
+      always_standby: false
 
   # =========================================================================
   # 最终兜底 — main_sequence 最后一步
   #
   # 前面所有规则都没匹配时走到这里
-  # primary: Google DNS (8.8.8.8)
-  # secondary: Cloudflare DNS (1.1.1.1)
-  # always_standby: true → 主备并行竞速，谁快用谁
+  # primary + secondary 都指向 Clash DNS (127.0.0.1:7874)
+  # Clash 内部处理实际的上游选择和故障转移
+  # always_standby: false → 避免同一 Clash DNS 重复查询
   # threshold: 500ms → primary 超过 500ms 则采纳 secondary 结果
   #
-  # 拆分主备为不同上游的理由:
-  #   原来主备都是 forward_remote_upstream (8.8.8.8+1.1.1.1 双上游)
-  #   always_standby 导致每次查询并行打两轮到同一组服务器，双倍负载零冗余
-  #   拆分后 Google 和 Cloudflare 独立故障域，真正的高可用
+  # 保留主备结构的理由:
+  #   保持插件结构与 panel.json 兼容
+  #   如需未来拆分不同 Clash 实例，结构已就绪
   # =========================================================================
 
   - tag: fallback
@@ -404,11 +391,13 @@ plugins:
       primary: forward_google_upstream
       secondary: forward_cloudflare_upstream
       threshold: 500
-      always_standby: true
+      always_standby: false
 
   - tag: fallback_seq
     type: sequence
     args:
+      - matches: qtype 28
+        exec: $reject_aaaa
       - exec: query_summary fallback_remote
       - exec: $fallback
 
@@ -441,7 +430,7 @@ plugins:
       - matches: qname $geosite_cn
         exec: $forward_local_seq
 
-  # 非国内域名 (geosite_no_cn) → Google + Cloudflare 双上游
+  # 非国内域名 (geosite_no_cn) → Clash DNS
   - tag: query_is_no_local_domain
     type: sequence
     args:
@@ -473,7 +462,7 @@ plugins:
       - matches: qtype 65
         exec: $reject_https
 
-  # 流媒体域名 → 专用 8.8.8.8 线路 (避免 1.1.1.1 可能返回被屏蔽 IP)
+  # 流媒体域名 → 专用 Clash DNS 线路
   - tag: query_is_stream_media_domain
     type: sequence
     args:
@@ -494,11 +483,11 @@ plugins:
   #   Step 7  Apple 域名                — 国内 CDN 优选 + 114 DNS 备用
   #   Step 8  DDNS 域名                 — 强制本地 DNS
   #   Step 9  自定义白名单               — 强制本地 DNS
-  #   Step 10 流媒体域名                — 专用 Google DNS
-  #   Step 11 灰名单 (防污染)            — 强制远程 DNS
+  #   Step 10 流媒体域名                — Clash DNS (127.0.0.1:7874)
+  #   Step 11 灰名单 (防污染)            — Clash DNS
   #   Step 12 国内域名 (geosite_cn)     — 国内 DNS 池
-  #   Step 13 非国内域名 (geosite_no_cn) — Google + Cloudflare
-  #   Step 14 fallback 兜底             — Google vs Cloudflare 竞速
+  #   Step 13 非国内域名 (geosite_no_cn) — Clash DNS
+  #   Step 14 fallback 兜底             — Clash DNS 兜底
   #
   #   每步之后 jump has_resp_sequence:
   #     有响应 → TTL 处理 → Cloudflare IP 黑名单 → accept 返回
@@ -516,7 +505,7 @@ plugins:
       - exec: $query_is_reject_domain
       - exec: jump has_resp_sequence
 
-      # Step 3 — 广告域名拦截
+      # Step 3 — 广告域名拦截 (按需启用: 取消下面三行的注释)
       - matches: qname $adlist
         exec: $reject_adlist
       - exec: jump has_resp_sequence
@@ -567,7 +556,7 @@ plugins:
       - exec: $query_is_no_local_domain
       - exec: jump has_resp_sequence
 
-      # Step 14 — 兜底: Google vs Cloudflare 竞速
+      # Step 14 — 兜底: Clash DNS
       - exec: $fallback_seq
       - exec: jump has_resp_sequence
 
@@ -579,10 +568,10 @@ plugins:
     type: udp_server
     args:
       entry: main_sequence
-      listen: ":5335"
+      listen: ":53"
 
   - tag: tcp_server
     type: tcp_server
     args:
       entry: main_sequence
-      listen: ":5335"
+      listen: ":53"

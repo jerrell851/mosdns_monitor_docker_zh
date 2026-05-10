@@ -1,9 +1,8 @@
 # ============================================================
 # vector.yml — mosdns 日志采集 + 中文映射
 #
-# 端口与 .env 变量对应:
-#   VECTOR_LOG_PORT  → address 监听端口
-#   LOKI_PORT        → loki endpoint 端口
+# UDP 监听端口 9010，与 docker-compose.yaml ports 一致
+# Loki endpoint 端口 3100，与 docker-compose.yaml 一致
 # ============================================================
 
 data_dir: /tmp/vector
@@ -11,8 +10,8 @@ data_dir: /tmp/vector
 sources:
   mosdns-log-socket:
     type: socket
-    address: "0.0.0.0:${VECTOR_LOG_PORT}"
-    mode: tcp
+    address: "0.0.0.0:9010"
+    mode: udp
     decoding:
       codec: bytes
     framing:
@@ -27,37 +26,78 @@ transforms:
       - mosdns-log-socket
     drop_on_error: false
     source: |
-      .app = "mosdns"
       if exists(.host) { del(.host) }
       if exists(.file) { del(.file) }
       if exists(.source_type) { del(.source_type) }
       raw = to_string!(.message)
-      message_parts = split(raw, r'\t')
-      if length(message_parts) < 4 {
-        abort
-      }
-      .timestamp = parse_timestamp(message_parts[0], "%F %T") ?? now()
-      .level = message_parts[1]
-      .meta = ""
-      if length(message_parts) == 6 {
-        .plugin = message_parts[2]
-        .processor = message_parts[3]
-        .message = message_parts[4]
-        .meta = message_parts[5]
-      } else {
-        .processor = message_parts[2]
-        .message = message_parts[3]
-        if length(message_parts) >= 5 {
-          .meta = message_parts[4]
-        }
-      }
-      if .meta != "" {
-        md = parse_json(.meta) ?? null
+      parts = split(raw, r'\t')
+      n = length(parts)
+      if n < 3 { abort }
+      .timestamp = parse_timestamp(parts[0], "%F %T", "UTC") ?? now()
+      .level = parts[1]
+      .plugin = ""
+      .processor = ""
+      .message = ""
+      if n == 6 {
+        md = parse_json(parts[5]) ?? null
         if md != null {
           . = merge!(., md)
+          .plugin = parts[2]
+          .processor = parts[3]
+          .message = parts[4]
+        } else {
+          .plugin = parts[2]
+          .processor = parts[3]
+          .message = parts[4]
         }
+      } else if n == 5 {
+        md = parse_json(parts[4]) ?? null
+        if md != null {
+          . = merge!(., md)
+          .processor = parts[2]
+          .message = parts[3]
+        } else {
+          .processor = parts[2]
+          .message = parts[3]
+        }
+      } else if n == 4 {
+        md = parse_json(parts[3]) ?? null
+        if md != null {
+          . = merge!(., md)
+          .message = parts[2]
+        } else {
+          .processor = parts[2]
+          .message = parts[3]
+        }
+      } else {
+        .message = parts[2]
       }
-      del(.meta)
+      if !exists(.uqid) && !exists(.qname) {
+        .app = "mosdns_sys"
+        if exists(.addr) {
+          .qname = .addr
+          del(.addr)
+        }
+        if exists(.tag) {
+          .processor = .message
+          .message = .tag
+          del(.tag)
+          if exists(.type) {
+            .qname = .type
+            del(.type)
+          } else if exists(.length) && exists(.file) {
+            .qname = to_string!(.file) + " 加载 " + to_string!(.length) + " 条规则"
+            del(.length)
+            del(.file)
+          } else if exists(.file) {
+            .qname = .file
+            del(.file)
+          }
+        }
+      } else {
+        .app = "mosdns"
+        .is_dns = "yes"
+      }
 
   mosdns-chinese:
     type: remap
@@ -73,23 +113,36 @@ transforms:
         "cache": "缓存命中",
         "redirect": "重定向",
         "reject_blocklist": "黑名单拒绝",
-        "reject_local_ptr": "本地反向拒绝",
+        "reject_local_ptr": "PTR拒绝",
+        "reject_ptr": "PTR拒绝",
         "reject_https": "HTTPS拒绝",
+        "reject_aaaa": "AAAA拦截",
+        "cloudflare_accel": "CF优选加速",
+        "apple_fallback": "Apple查询",
         "entry err": "入口错误",
         "secondary error": "备用错误",
         "primary error": "主查询错误",
         "upstream error": "上游错误"
       }
-      .message_zh = get(zh, [.message]) ?? .message
-      if .message_zh == .message && starts_with(string!(.message), "reject_") {
-        .message_zh = replace(string!(.message), "reject_", "拒绝-")
+      if .app == "mosdns_sys" {
+        .message_zh = .message
+      } else {
+        .message_zh = get(zh, [.message]) ?? .message
+        if .message_zh == .message && starts_with(string!(.message), "reject_") {
+          .message_zh = replace(string!(.message), "reject_", "拒绝-")
+        }
       }
 
 sinks:
-  events_file:
-    type: file
+  loki_out:
+    type: loki
     inputs:
       - mosdns-chinese
-    path: /tmp/vector/events.json
+    endpoint: http://loki:3100
     encoding:
       codec: json
+    compression: snappy
+    healthcheck:
+      enabled: false
+    labels:
+      app: "{{ app }}"

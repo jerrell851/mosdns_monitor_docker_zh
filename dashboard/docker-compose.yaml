@@ -1,7 +1,7 @@
 volumes:
   prometheus_data:
   grafana_data:
-  vector_data:
+  loki_data:
 
 networks:
   monitoring:
@@ -10,18 +10,15 @@ networks:
       config:
         - subnet: 192.168.167.0/24
           gateway: 192.168.167.1
-          
+
 services:
   vector:
     container_name: vector
     image: timberio/vector:latest-alpine
-    environment:
-      - VECTOR_LOG_PORT=${VECTOR_LOG_PORT}
     ports:
-      - "${VECTOR_LOG_PORT}:${VECTOR_LOG_PORT}"
+      - "9010:9010/udp"
     volumes:
       - ./vector/config.yml:/etc/vector/vector.yaml
-      - vector_data:/tmp/vector
     restart: always
     networks:
       - monitoring
@@ -33,16 +30,17 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.tmpl
       - prometheus_data:/prometheus
     environment:
-      - PROMETHEUS_TARGET=${PROMETHEUS_TARGET}
+      # ↓ 改为你的 mosdns 地址 (IP:8338)
+      - PROMETHEUS_TARGET=192.168.11.1:8338
     entrypoint:
       - sh
       - -euc
       - |
-        sed "s|__PROMETHEUS_TARGET__|${PROMETHEUS_TARGET}|g" \
+        sed "s|__PROMETHEUS_TARGET__|$${PROMETHEUS_TARGET}|g" \
           /etc/prometheus/prometheus.tmpl > /etc/prometheus/prometheus.yml
         exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml
     ports:
-      - "${PROMETHEUS_PORT}:${PROMETHEUS_PORT}"
+      - "9090:9090"
     restart: always
     networks:
       - monitoring
@@ -50,20 +48,11 @@ services:
   loki:
     container_name: loki
     image: grafana/loki:3.4.3
+    user: root
     volumes:
       - ./loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/tmp/loki
     command: -config.file=/etc/loki/local-config.yaml
-    networks:
-      - monitoring
-
-  promtail:
-    container_name: promtail
-    image: grafana/promtail:3.4.3
-    volumes:
-      - ./promtail/promtail-config.yaml:/etc/promtail/config.yaml
-      - vector_data:/tmp/vector
-    command: -config.file=/etc/promtail/config.yaml
-    restart: always
     networks:
       - monitoring
 
@@ -85,20 +74,20 @@ services:
         datasources:
         - name: Loki
           type: loki
-          uid: ${LOKI_DATASOURCE_UID}
+          uid: P8E80F9AEF21F6940
           access: proxy
           orgId: 1
-          url: http://loki:${LOKI_PORT}
+          url: http://loki:3100
           basicAuth: false
           isDefault: true
           version: 1
           editable: false
         - name: Prometheus
           type: prometheus
-          uid: ${PROMETHEUS_DATASOURCE_UID}
+          uid: ffkn40vmjsdtsf
           access: proxy
           orgId: 1
-          url: http://prometheus:${PROMETHEUS_PORT}
+          url: http://prometheus:9090
           basicAuth: false
           isDefault: false
           version: 1
@@ -107,6 +96,6 @@ services:
         /run.sh
     image: grafana/grafana:latest
     ports:
-      - "${GRAFANA_PORT}:${GRAFANA_PORT}"
+      - "3000:3000"
     networks:
       - monitoring

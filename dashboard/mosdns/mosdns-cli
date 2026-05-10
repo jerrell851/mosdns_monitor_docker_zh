@@ -1,0 +1,157 @@
+#!/bin/sh
+# ============================================================
+# mosdns-cli — mosdns 控制工具（跨平台，无依赖）
+#
+# 用法:
+#   mosdns-cli reload       热重载 mosdns（保留缓存）
+#   mosdns-cli cf            更新 Cloudflare CIDR + 热重载
+#   mosdns-cli clear [M]     清空日志（无参立即清，带参数 ≥ M MB 才清）
+#   mosdns-cli flush         清空 DNS 缓存
+#   mosdns-cli start         启动 mosdns + 日志转发
+#   mosdns-cli stop          停止 mosdns + 日志转发
+#   mosdns-cli run            仅启动 mosdns（不启动日志转发）
+# ============================================================
+
+API="http://127.0.0.1:8338"
+CONF="/etc/mosdns/config_custom.yaml"
+DIR="/etc/mosdns"
+LOG="/var/log/mosdns.log"
+DUMP="/tmp/mosdns_cache_dump.dat"
+CIDR="/etc/mosdns/rule/cloudflare-cidr.txt"
+LUCID="/etc/init.d/mosdns"
+LOGINIT="${LOGINIT:-/etc/init.d/mosdns-log}"
+
+# ── 内部工具 ────────────────────────────────────────────────
+
+die()  { echo "$@" >&2; exit 1; }
+
+mos_running() { pidof mosdns > /dev/null 2>&1; }
+
+luci_has()    { [ -x "${LUCID}" ]; }
+
+mos_start() {
+    if luci_has; then
+        ${LUCID} start
+    else
+        /usr/bin/mosdns start -c "${CONF}" -d "${DIR}" </dev/null >/dev/null 2>&1 &
+    fi
+}
+
+mos_stop() {
+    if luci_has; then
+        ${LUCID} stop 2>/dev/null
+    fi
+    killall mosdns 2>/dev/null
+    sleep 1
+}
+
+wait_mos() {
+    local i
+    for i in $(seq 1 30); do
+        curl -s "${API}/metrics" > /dev/null 2>&1 && break
+        sleep 1
+    done
+    curl -s "${API}/metrics" > /dev/null 2>&1 || die "mosdns 30 秒未就绪"
+}
+
+# ── 命令 ────────────────────────────────────────────────────
+
+cmd_reload() {
+    rm -f "${DUMP}"
+    echo "导出缓存..." >&2
+    curl -s "${API}/plugins/lazy_cache/dump" > "${DUMP}" || die "导出缓存失败"
+    [ -s "${DUMP}" ] && echo "  $(wc -c < "${DUMP}") bytes" >&2
+
+    echo "重启 mosdns..." >&2
+    mos_stop
+    mos_start
+    wait_mos
+    echo "mosdns 已就绪" >&2
+
+    if [ -s "${DUMP}" ]; then
+        code=$(curl -s -o /dev/null -w "%{http_code}" -X POST --data-binary @"${DUMP}" "${API}/plugins/lazy_cache/load_dump")
+        if [ "$code" = "200" ]; then
+            new_size=$(curl -s "${API}/plugins/lazy_cache/dump" | wc -c)
+            echo "缓存已恢复 (${new_size} bytes)" >&2
+        else
+            echo "缓存恢复失败 (HTTP ${code})" >&2
+        fi
+        rm -f "${DUMP}"
+    fi
+    echo "完成" >&2
+}
+
+cmd_cf() {
+    echo "下载 Cloudflare IPv4..." >&2
+    curl -s --connect-timeout 10 https://www.cloudflare.com/ips-v4/ > "${CIDR}" || die "下载失败"
+    echo "" >> "${CIDR}"
+    echo "下载 Cloudflare IPv6..." >&2
+    curl -s --connect-timeout 10 https://www.cloudflare.com/ips-v6/ >> "${CIDR}" || die "下载失败"
+    [ $(wc -c < "${CIDR}") -lt 100 ] && die "CIDR 内容异常"
+    echo "已更新 $(wc -l < "${CIDR}") 个 CIDR" >&2
+    cmd_reload
+}
+
+cmd_clear() {
+    if [ -n "$1" ]; then
+        case "$1" in ''|*[!0-9]*) die "请输入 1-99 的数值" ;; esac
+        [ "$1" -lt 1 ] || [ "$1" -gt 99 ] && die "数值需在 1-99 之间"
+        local max=$(($1 * 1024 * 1024))
+        local size=$(wc -c < "${LOG}" 2>/dev/null || echo 0)
+        if [ "$size" -lt "$max" ]; then
+            echo "$(($size / 1024))K < ${1}M，跳过" >&2
+            return 0
+        fi
+    fi
+    :> "${LOG}"
+    ${LOGINIT} restart >/dev/null 2>&1 &
+    echo "日志已清空" >&2
+}
+
+cmd_flush() {
+    curl -s "${API}/plugins/lazy_cache/flush" > /dev/null
+    echo "缓存已清空" >&2
+}
+
+_ensure_started() {
+    mos_running && die "mosdns 已在运行"
+    echo "启动 mosdns..." >&2
+    mos_start
+    wait_mos
+    echo "mosdns 已启动" >&2
+}
+
+cmd_start() {
+    _ensure_started
+    echo "启动日志转发..." >&2
+    ${LOGINIT} start
+    echo "日志转发已启动" >&2
+}
+
+cmd_stop() {
+    echo "停止 mosdns..." >&2
+    mos_stop
+    sleep 1
+    mos_running && die "mosdns 未能停止"
+    ${LOGINIT} stop 2>/dev/null
+    echo "已停止" >&2
+}
+
+cmd_run() { _ensure_started; }
+
+# ── 入口 ────────────────────────────────────────────────────
+
+case "$1" in
+    reload) cmd_reload ;;
+    cf)     cmd_cf ;;
+    clear)  cmd_clear "$2" ;;
+    flush)  cmd_flush ;;
+    start)  cmd_start ;;
+    stop)   cmd_stop ;;
+    run)    cmd_run ;;
+    *)      echo "用法: mosdns-cli {reload|cf|clear [M]|flush|start|stop|run}" >&2
+            echo "  reload  热重载（保留缓存）  cf    更新 CF CIDR" >&2
+            echo "  clear   清空日志（可带 M）  flush 清空缓存" >&2
+            echo "  start   启动 mosdns + 日志   run   仅启动 mosdns" >&2
+            exit 1 ;;
+esac
