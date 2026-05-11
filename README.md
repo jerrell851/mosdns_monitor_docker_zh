@@ -2,26 +2,105 @@
 
 # mosdns — DNS 分流 + Grafana 监控方案
 
-> **代码设计:**：Jerrell &nbsp;|&nbsp; **代码助手**：DeepSeek &nbsp;|&nbsp; **许可**：[GPL v3.0](LICENSE)
+> **代码设计**：Jerrell &nbsp;|&nbsp; **代码助手**：DeepSeek &nbsp;|&nbsp; **许可**：[GPL v3.0](LICENSE)
 
 基于 [mosdns](https://github.com/IrineSistiana/mosdns) v5 的 DNS 分流部署方案，配合 [OpenClash](https://github.com/vernesong/OpenClash) 实现零泄露代理。通过 Docker Compose 一键部署 Loki + Prometheus + Grafana 监控栈，提供 DNS 查询日志采集、实时指标监控和汉化可视化面板。
 
 ---
 
-## 重要：关于 DNS 泄露测试（仅个人理解及AI分析所得，风险自判）
+## 重要：如何验证 DNS 是否泄露
 
-网络上流行的 DNS 泄露测试网站（ipleak.net、dnsleaktest.com、whoer.net）普遍采用**钓鱼式检测**：
+DNS 泄露测试站质量参差不齐，且分 DNS 架构天然与部分测试站的检测模型冲突。以下是实测结论。
 
-1. 生成一个随机子域名（如 `abc123.leaktest.com`）
-2. 将该域名解析到一个**中国 IP**（如广东电信 `163.177.x.x`）
-3. 浏览器连接该 IP → GeoIP 直连 → ISP 出口 IP 暴露
-4. 测试站拿着 ISP IP 报告"检测到泄露"
+### 推荐的测试站
 
-**这不是 DNS 泄露，是 HTTP 路由决策。** Google 不会托管在广东电信的 IP 上，现实中不存在此问题。如果你看到的泄露报告里出现了大陆的这类地址，说明测试站使用了上述方法。
+| 测试站 | 可信度 | 说明 |
+|--------|--------|------|
+| **[dnsleaktest.com](https://dnsleaktest.com)** | **高** | 专项 DNS 检测，只测一项——域名查询从哪些 DNS 服务器出去。不混 WebRTC、不混 IP 检测，结果干净。**如果这里显示无泄露，就是没泄露。** 但存在一种例外情况——见下方"dnsleaktest.com 误报说明"。 |
+| **[whoer.net](https://whoer.net)** | 中 | DNS 检测本身准确，但它期望所有查询从同一个 DNS 服务器出去。mosdns 把国内域名走本地 DNS、国外域名走 Clash DNS，会被标记为"脆弱的"——这不是泄露，是检测模型不认分 DNS 设计。看结果时**只盯 DNS 一栏**：列出的服务器没有国内地址（223.5.5.5、114.114.114.114 等），就没泄露。 |
 
-至于国内域名使用运营商 DNS 明文查询的安全问题：ISP 本身就能从 HTTP 连接中看到你访问的国内网站，因此对国内 DNS 加密封装没有实际意义。
+### 不推荐
 
-> **如果测试站返回了你的 ISP 名称**（而非其他地区运营商）：这是 `forward_local` 中配置的 ISP DNS 服务器被泄露测试站的随机子域名触发。该子域名被 geosite 规则匹配为国内域名，走了 ISP DNS 查询。这不是国外流量泄露，但如果你在意，将 `forward_local` 中所有 ISP DNS 替换为公共 DNS（如 `223.5.5.5`、`119.29.29.29`）即可消除。代价是国内 CDN 解析可能稍慢。
+| 测试站 | 问题 |
+|--------|------|
+| 部分综合检测站 | 使用**钓鱼式检测**——生成随机子域名将其解析到中国 IP，浏览器连接该 IP 后 GeoIP 直连暴露 ISP 出口。**这是 HTTP 路由泄露，不是 DNS 泄露。** 现实中 Google 不会托管在大陆的 IP 上。 |
+
+> **判断标准**：DNS 泄露检测看的是"域名查询发给了哪个 DNS 服务器"。如果列出的 DNS 服务器里出现了国内地址（如 `223.5.5.5`、`114.114.114.114`、运营商 DNS），才是 DNS 泄露。只看到代理出口 IP 或 ISP 名称，不是 DNS 泄露。
+
+### 分 DNS 架构与测试站的冲突
+
+mosdns 的设计是**国内域名走本地 DNS、国外域名走代理 DNS**。测试站通常假设所有 DNS 查询从同一个出口出去，看到分两路就会报"不一致"或"脆弱的"。这是设计行为，不是泄露。
+
+> 国内域名使用运营商 DNS 明文查询的安全问题：ISP 本身就能从 HTTP 连接中看到你访问的国内网站，因此对国内 DNS 加密封装没有实际意义。如果你在意，将 `forward_local` 中所有 ISP DNS 替换为公共 DNS（如 `223.5.5.5`、`119.29.29.29`）即可，代价是国内 CDN 解析可能稍慢。
+
+### dnsleaktest.com 误报说明
+
+即使 mosdns 和 Clash 均配置正确，dnsleaktest.com 仍可能报告少量国内 DNS 服务器（如联通 `61.243.17.x`）。**这不一定是泄露。** 分两种情况：
+
+**场景 A：阿里 DNS 递归链暴露（误报）**
+
+dnsleaktest 的随机子域名未被任何 geosite 列表收录，走 Step 14 兜底 → Clash DNS → 8.8.8.8/1.1.1.1 经代理。路径正确，不应出现国内 DNS。
+
+但阿里 DNS（你的 Clash `default-nameserver` 和 `proxy-server-nameserver` 指向的 `223.5.5.5`）做递归解析时，内部可能经过联通等 ISP DNS。这**不由你控制，不算泄露**。
+
+用以下命令确认——若日志显示 `fallback_remote`，路径正确：
+
+```bash
+grep "dnsleaktest" /var/log/mosdns.log | tail -5
+```
+
+**场景 B：域名被 geosite 错分到 cn（真实泄露）**
+
+验证命令同上。若日志**仅**显示 `forward_local`、没有 `fallback_remote`，说明 geosite 数据将该域名归入了 `cn`，走 Step 13 国内 DNS 明文查询——这是真实泄露。将该域名加入 `/etc/mosdns/rule/greylist.txt`。
+
+> **核心原则**：不要只看测试站报了哪些 DNS 服务器。看 mosdns 日志——`fallback_remote` / `forward_remote` 说明路径正确，测试站看到的是上游递归链而非你的直接查询。
+
+---
+
+### ⚠️ DNS 泄露真实路径（系统前端模式，2026-05）
+
+上述测试站钓鱼行为与真实 DNS 泄露是两回事。生产环境实测发现**系统前端模式下存在真实 DNS 泄露，根因在 Clash 的 DNS 配置，而非 mosdns。**
+
+#### 泄露机制
+
+Clash `redir-host` 模式下，`nameserver` 是**默认** DNS 上游。配置使用 `https://dns.alidns.com/dns-query`（阿里 DoH），而 `fallback`（8.8.8.8/1.1.1.1）**仅在 `fallback-filter` 命中的域名上才启用**。原 `fallback-filter.geosite: [gfw]` 只覆盖已知被墙域名，导致大量未在 gfw 列表中的境外域名默认走阿里 DNS 解析：
+
+```
+客户端 → mosdns :53 → geosite_no_cn 匹配 → 127.0.0.1:7874 (Clash DNS)
+→ 域名不在 gfw 列表 → nameserver: https://dns.alidns.com/dns-query  ← 泄露
+```
+
+> `gfw` 是 `geolocation-!cn` 的**子集**（被墙域名 ⊆ 境外域名）。用 `geolocation-!cn` 替换 `gfw` 可覆盖所有境外域名，同时包含原有 gfw 列表。
+
+#### geosite 数据分类缺陷
+
+实测发现 v2ray-rules-dat 将大量 Google APIs 域名归入 `geosite:cn`，且这些域名**不在** `geosite:geolocation-!cn` 中：
+
+```
+full:safebrowsing.googleapis.com
+full:fonts.googleapis.com
+full:crashlyticsreports-pa.googleapis.com
+full:clientservices.googleapis.com
+full:imasdk.googleapis.com
+full:tac.googleapis.com
+... (共 10+ 个 googleapis.com 子域名)
+```
+
+这是设计行为——这些 Google API 在中国可正常访问、服务于国内 App，因此被归为"国内域名"。后果是这些域名在 **mosdns 层**就被 Step 12（geosite_cn）匹配，走国内 ISP DNS 明文查询：
+
+```
+safebrowsing.googleapis.com → mosdns Step 12 geosite_cn 匹配
+→ forward_local (ISP DNS 明文 UDP)  ← 泄露
+```
+
+#### 双层防护
+
+| 层级 | 位置 | 操作 | 作用 |
+|------|------|------|------|
+| **第一层** | `/etc/mosdns/rule/greylist.txt` | 添加 `domain:googleapis.com` | mosdns Step 11 拦截（在 geosite_cn 之前），走 Clash DNS |
+| **第二层** | Clash `fallback-filter` | `geosite: [gfw]` → `geosite: [geolocation-!cn]` | 所有境外域名走 fallback DNS（8.8.8.8/1.1.1.1 经代理） |
+
+> 第一层解决已知 googleapis 类问题，第二层防止未发现的境外域名漏到阿里 DNS。
 
 ---
 
@@ -323,8 +402,8 @@ main_sequence 按优先级执行 14 步，每步后检查是否有响应：
           → Step 9  白名单 → 国内 DNS
           → Step 10 流媒体 → 专用线路
           → Step 11 灰名单 → 远程 DNS
-          → Step 12 国内域名 → 国内 DNS 池
-          → Step 13 国外域名 → 远程 DNS
+          → Step 12 国外域名 → 远程 DNS
+          → Step 13 国内域名 → 国内 DNS 池
           → Step 14 兜底 → 竞速查询
 ```
 
@@ -334,22 +413,24 @@ main_sequence 按优先级执行 14 步，每步后检查是否有响应：
 | ---- | -------- | -------------- |
 | 10 流媒体 | Google DoH | Clash DNS + AAAA 拦截 |
 | 11 灰名单 | Google + Cloudflare DoH | Clash DNS + AAAA 拦截 |
-| 12 国内 | 国内 DNS 池 | 同左 |
-| 13 国外 | Google + Cloudflare DoH | Clash DNS + AAAA 拦截 |
+| 12 国外 | Google + Cloudflare DoH | Clash DNS + AAAA 拦截 |
+| 13 国内 | 国内 DNS 池 | 同左 |
 | 14 兜底 | Google vs Cloudflare 竞速 | Clash DNS 竞速 + AAAA 拦截 |
 
-> AAAA 拦截仅作用于走 Clash 的路径（步骤 10/11/13/14）。国内 DNS 路径不受影响，IPv6 正常使用。
+> AAAA 拦截仅作用于走 Clash 的路径（步骤 10/11/12/14）。国内 DNS 路径（步骤 13）不受影响，IPv6 正常使用。
+>
+> Step 12（geosite_no_cn）在 Step 13（geosite_cn）之前执行。若域名同时存在于两个列表（如 gstatic.com、googleapis.com 等被 geosite 误归入 cn 的境外域名），优先走远程 DNS，避免泄露。
 
 #### Step 7 Apple 域名工作流
 
 ```
-Apple 域名 → primary（国内 DNS 查询）
-              ├─ 返回国内 IP + <100ms → 直接返回，114 不触发
-              ├─ 返回国外 IP        → drop_resp → 114 DNS 接管
-              └─ 超过 100ms         → 114 DNS 并行竞速
+Apple 域名 → 本地 DNS 与 114 DNS 并行竞速
+              ├─ 本地 DNS 返回国内 IP → 采纳（国内 CDN 最快）
+              ├─ 本地 DNS 返回国外 IP → drop → 采纳 114 DNS 结果
+              └─ 本地 DNS 超时/慢于 114 → 采纳 114 DNS 结果
 ```
 
-> 后端模式下 `always_standby: true` 并行更好；系统前端模式下 `always_standby: false` 避免 114 明文泄漏。
+> Apple 域名的目标是**最快国内 CDN**，非防泄露。两端模式均使用 `always_standby: true` 并行竞速，本地 DNS 和 114 DNS 谁快用谁。Apple 域名本身不被墙，114 DNS 查询不存在隐私问题。
 
 #### 关闭广告拦截
 
@@ -468,38 +549,39 @@ dns:
   fallback-filter:
     geoip: true
     geoip-code: CN
-    geosite: [gfw]
+    geosite:
+    - "geolocation-!cn"
     ipcidr:
-      - 0.0.0.0/8
-      - 10.0.0.0/8
-      - 100.64.0.0/10
-      - 127.0.0.0/8
-      - 169.254.0.0/16
-      - 172.16.0.0/12
-      - 192.0.0.0/24
-      - 192.0.2.0/24
-      - 192.88.99.0/24
-      - 192.168.0.0/16
-      - 198.18.0.0/15
-      - 198.51.100.0/24
-      - 203.0.113.0/24
-      - 224.0.0.0/4
-      - 240.0.0.0/4
-      - 255.255.255.255/32
-      - ::/128
-      - ::1/128
-      - 2001::/32
-    domain:
-      - "+.google.com"
-      - "+.facebook.com"
-      - "+.youtube.com"
-      - "+.githubusercontent.com"
-      - "+.googlevideo.com"
-      - "+.msftconnecttest.com"
-      - "+.msftncsi.com"
+    - 0.0.0.0/8
+    - 10.0.0.0/8
+    - 100.64.0.0/10
+    - 127.0.0.0/8
+    - 169.254.0.0/16
+    - 172.16.0.0/12
+    - 192.0.0.0/24
+    - 192.0.2.0/24
+    - 192.88.99.0/24
+    - 192.168.0.0/16
+    - 198.18.0.0/15
+    - 198.51.100.0/24
+    - 203.0.113.0/24
+    - 224.0.0.0/4
+    - 240.0.0.0/4
+    - 255.255.255.255/32
+    - ::/128
+    - ::1/128
+    - 2001::/32
+    domain: []
 ```
 
-> `nameserver` 和 `fallback` 必须全部使用 DoH。`default-nameserver` 仅在启动时解析一次 DoH 主机名，不含用户查询内容，明文安全。
+> `nameserver` 使用国内 DoH（快速解析国内域名）。`fallback` 使用海外 DoH（8.8.8.8/1.1.1.1 经代理）。
+>
+> **防泄露双重机制**：
+> 1. `geosite: ["geolocation-!cn"]`（注意 `"` 引号——`!` 是 YAML 标签符，不加引号可能被误解析）确保所有境外域名直接走 fallback
+> 2. `geoip: true` + `geoip-code: CN` 作为第二层——即使 geosite 匹配失效，只要 nameserver 返回了非中国 IP，Clash 会用 fallback DNS 重新查询
+> 3. `ipcidr` 私有 IP 段排除，避免内网地址触发不必要的 fallback 查询
+>
+> `default-nameserver` 仅在启动时解析 DoH 主机名，不含用户查询内容，明文安全。
 
 ### TUN 配置
 

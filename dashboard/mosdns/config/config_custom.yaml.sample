@@ -9,7 +9,7 @@
 # 分流逻辑 (main_sequence 执行顺序):
 #   拒绝类 → 广告拦截 → hosts 本地 → redirect 重定向 → 缓存查找
 #   → Apple 国内优选 → DDNS 强制本地 → 白名单本地 → 流媒体专用线路
-#   → 灰名单远程 → 国内域名本地 → 国外域名远程 → 兜底 Google/Cloudflare 竞速
+#   → 灰名单远程 → 国外域名远程 → 国内域名本地 → 兜底 Google/Cloudflare 竞速
 #
 # 拒绝最先执行：已知恶意/无用域名直接杀掉，避免浪费后续步骤的计算资源。
 #
@@ -434,19 +434,21 @@ plugins:
       - matches: qname $ddnslist
         exec: $forward_local_seq
 
-  # 国内域名 (geosite_cn) → 国内 DNS 池
-  - tag: query_is_local_domain
-    type: sequence
-    args:
-      - matches: qname $geosite_cn
-        exec: $forward_local_seq
-
-  # 非国内域名 (geosite_no_cn) → Google + Cloudflare 双上游
+  # 非国内域名 (geosite_no_cn) → 远程 DNS
+  # 在 geosite_cn 之前匹配，确保同时存在于两个列表的域名走远程 DNS
   - tag: query_is_no_local_domain
     type: sequence
     args:
       - matches: qname $geosite_no_cn
         exec: $forward_remote_seq
+
+  # 国内域名 (geosite_cn) → 国内 DNS 池
+  # 仅纯国内域名走到这里（不在 geosite_no_cn 中的 cn 域名）
+  - tag: query_is_local_domain
+    type: sequence
+    args:
+      - matches: qname $geosite_cn
+        exec: $forward_local_seq
 
   # 自定义白名单 → 国内 DNS
   - tag: query_is_whitelist_domain
@@ -496,8 +498,10 @@ plugins:
   #   Step 9  自定义白名单               — 强制本地 DNS
   #   Step 10 流媒体域名                — 专用 Google DNS
   #   Step 11 灰名单 (防污染)            — 强制远程 DNS
-  #   Step 12 国内域名 (geosite_cn)     — 国内 DNS 池
-  #   Step 13 非国内域名 (geosite_no_cn) — Google + Cloudflare
+  #   Step 12 非国内域名 (geosite_no_cn) — Google + Cloudflare
+  #           在 geosite_cn 之前匹配，确保同时存在于两个列表的域名走远程 DNS
+  #   Step 13 国内域名 (geosite_cn)     — 国内 DNS 池
+  #           仅纯国内域名走到这里（不在 geosite_no_cn 中的 cn 域名）
   #   Step 14 fallback 兜底             — Google vs Cloudflare 竞速
   #
   #   每步之后 jump has_resp_sequence:
@@ -516,7 +520,7 @@ plugins:
       - exec: $query_is_reject_domain
       - exec: jump has_resp_sequence
 
-      # Step 3 — 广告域名拦截
+      # Step 3 — 广告域名拦截（按需启用: 关闭方法是为下面三行加注释）
       - matches: qname $adlist
         exec: $reject_adlist
       - exec: jump has_resp_sequence
@@ -559,12 +563,14 @@ plugins:
       - exec: $query_is_greylist_domain
       - exec: jump has_resp_sequence
 
-      # Step 12 — 国内域名 → 国内 DNS
-      - exec: $query_is_local_domain
+      # Step 12 — 非国内域名 → 远程 DNS
+      # 在 geosite_cn 之前匹配，确保同时存在于两个列表的域名走远程 DNS
+      - exec: $query_is_no_local_domain
       - exec: jump has_resp_sequence
 
-      # Step 13 — 非国内域名 → 远程 DNS
-      - exec: $query_is_no_local_domain
+      # Step 13 — 国内域名 → 国内 DNS
+      # 仅纯国内域名走到这里（不在 geosite_no_cn 中的 cn 域名）
+      - exec: $query_is_local_domain
       - exec: jump has_resp_sequence
 
       # Step 14 — 兜底: Google vs Cloudflare 竞速
