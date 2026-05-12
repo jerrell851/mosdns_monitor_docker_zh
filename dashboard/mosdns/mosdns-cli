@@ -4,20 +4,19 @@
 #
 # 用法:
 #   mosdns-cli reload       热重载 mosdns（保留缓存）
-#   mosdns-cli cf            更新 Cloudflare CIDR + 热重载
 #   mosdns-cli clear [M]     清空日志（无参立即清，带参数 ≥ M MB 才清）
 #   mosdns-cli flush         清空 DNS 缓存
 #   mosdns-cli start         启动 mosdns + 日志转发
 #   mosdns-cli stop          停止 mosdns + 日志转发
-#   mosdns-cli run            仅启动 mosdns（不启动日志转发）
+#   mosdns-cli hook [--remove]  注入或移除 v2dat_dump 后置清理钩子
+#   mosdns-cli init             从 geo 文件移除错分域名
 # ============================================================
 
 API="http://127.0.0.1:8338"
 CONF="/etc/mosdns/config_custom.yaml"
 DIR="/etc/mosdns"
 LOG="/var/log/mosdns.log"
-DUMP="/tmp/mosdns_cache_dump.dat"
-CIDR="/etc/mosdns/rule/cloudflare-cidr.txt"
+DUMP="/etc/mosdns/cache.dump"
 LUCID="/etc/init.d/mosdns"
 LOGINIT="${LOGINIT:-/etc/init.d/mosdns-log}"
 
@@ -29,12 +28,126 @@ mos_running() { pidof mosdns > /dev/null 2>&1; }
 
 luci_has()    { [ -x "${LUCID}" ]; }
 
+# ── DNS 透明劫持（仅系统前端模式 :53）────────────────────────
+# 阻止局域网内硬编码 DNS 的设备绕过 mosdns
+
+_hijack_setup() {
+    [ -f "/sbin/fw4" ] || return 0
+    grep -q 'listen: *":53"' "${CONF}" 2>/dev/null || return 0
+    # 已有其他 DNS 劫持规则则不重复创建
+    nft list chain inet mosdns prerouting 2>/dev/null | grep -q 'dport 53' && return 0
+    nft add table inet mosdns 2>/dev/null || { echo "mosdns: nftables 不可用，DNS 劫持跳过" >&2; return 0; }
+    nft add chain inet mosdns prerouting "{ type nat hook prerouting priority -95; policy accept; }" 2>/dev/null || {
+        nft delete table inet mosdns 2>/dev/null
+        echo "mosdns: 无法创建 nft 链，DNS 劫持跳过" >&2
+        return 0
+    }
+    nft add rule inet mosdns prerouting "meta nfproto { ipv4, ipv6 } udp dport 53 counter redirect to :53 comment \"DNS HIJACK\"" 2>/dev/null || {
+        nft delete table inet mosdns 2>/dev/null
+        echo "mosdns: 无法添加 nft 规则，DNS 劫持跳过" >&2
+        return 0
+    }
+    echo "mosdns: DNS 透明劫持已启用 (port 53)" >&2
+    uci -q set mosdns.config.local_dns_redirect=1 2>/dev/null && uci -q commit mosdns 2>/dev/null
+}
+
+_hijack_teardown() {
+    if nft list table inet mosdns >/dev/null 2>&1; then
+        nft delete table inet mosdns 2>/dev/null
+        uci -q set mosdns.config.local_dns_redirect=0 2>/dev/null && uci -q commit mosdns 2>/dev/null
+    fi
+}
+
+# ── Geo 文件清理钩子（兼容 luci-app-mosdns）─────────────────
+# 在 v2dat_dump 重建 geo 文件后，自动删除分类错误的域名
+
+_get_mosdns_script_path() {
+    sed -n 's/^MOSDNS_SCRIPT=//p' "${LUCID}" 2>/dev/null
+}
+
+_hook_inject() {
+    local script="$1"
+    if grep -q 'mosdns-cli init.*injected by mosdns-cli hook' "$script" 2>/dev/null; then
+        return 0
+    fi
+    grep -q '^v2dat_dump()' "$script" || die "未找到 v2dat_dump() 函数"
+    local line
+    line=$(awk '/^v2dat_dump()/{found=1; depth=0; next}
+                 found && /^\{$/{depth++; next}
+                 found && /^\}$/{if(depth==0){print NR; exit}else{depth--}}' "$script")
+    [ -n "$line" ] || die "无法定位 v2dat_dump() 结束位置"
+    cp "$script" "${script}.bak"
+    sed -i "${line}i\\    mosdns-cli init  # injected by mosdns-cli hook" "$script" || {
+        mv "${script}.bak" "$script"
+        die "hook 注入失败"
+    }
+    rm -f "${script}.bak"
+    echo "mosdns: hook 已注入 $(basename "$script")" >&2
+}
+
+_hook_remove() {
+    local script="$1"
+    if grep -q 'mosdns-cli init.*injected by mosdns-cli hook' "$script" 2>/dev/null; then
+        sed -i '/mosdns-cli init.*injected by mosdns-cli hook/d' "$script"
+        echo "mosdns: hook 已从 $(basename "$script") 移除" >&2
+    fi
+}
+
+_remove_domains() {
+    local remove_file="$1"
+    local geo_file="$2"
+
+    [ -f "$remove_file" ] || return 0
+    [ -f "$geo_file" ] || return 0
+
+    local patterns="${TMPDIR:-/tmp}/mosdns_patterns_$$"
+    sed '/^#/d; /^$/d' "$remove_file" > "$patterns"
+    [ -s "$patterns" ] || { rm -f "$patterns"; return 0; }
+
+    local before after
+    before=$(wc -l < "$geo_file")
+    local tmp="${geo_file}.tmp"
+    grep -vFx -f "$patterns" "$geo_file" > "$tmp"
+    after=$(wc -l < "$tmp")
+    local count=$((before - after))
+
+    mv "$tmp" "$geo_file"
+    rm -f "$patterns"
+    [ "$count" -gt 0 ] && echo "mosdns: 已从 $(basename "$geo_file") 移除 $count 个域名" >&2
+}
+
+# ── 缓存持久化 ────────────────────────────────────────────────
+
+_cache_save() {
+    mos_running || return 0
+    local code
+    code=$(curl -s -o "${DUMP}" -w "%{http_code}" "${API}/plugins/lazy_cache/dump" 2>/dev/null)
+    if [ "$code" != "200" ]; then
+        echo "mosdns: 缓存保存失败 (HTTP $code)" >&2
+        :> "${DUMP}"
+        return 1
+    fi
+    [ -s "${DUMP}" ] && echo "缓存已保存 ($(wc -c < "${DUMP}") bytes)" >&2
+}
+
+_cache_load() {
+    [ -s "${DUMP}" ] || return 0
+    local code
+    code=$(curl -s -o /dev/null -w "%{http_code}" -X POST --data-binary @"${DUMP}" "${API}/plugins/lazy_cache/load_dump")
+    if [ "$code" = "200" ]; then
+        echo "缓存已恢复 ($(wc -c < "${DUMP}") bytes)" >&2
+    else
+        echo "mosdns: 缓存恢复失败 (HTTP $code)" >&2
+    fi
+}
+
 mos_start() {
     if luci_has; then
         ${LUCID} start
     else
         /usr/bin/mosdns start -c "${CONF}" -d "${DIR}" </dev/null >/dev/null 2>&1 &
     fi
+    _hijack_setup
 }
 
 mos_stop() {
@@ -42,6 +155,7 @@ mos_stop() {
         ${LUCID} stop 2>/dev/null
     fi
     killall mosdns 2>/dev/null
+    _hijack_teardown
     sleep 1
 }
 
@@ -57,45 +171,20 @@ wait_mos() {
 # ── 命令 ────────────────────────────────────────────────────
 
 cmd_reload() {
-    rm -f "${DUMP}"
-    echo "导出缓存..." >&2
-    curl -s "${API}/plugins/lazy_cache/dump" > "${DUMP}" || die "导出缓存失败"
-    [ -s "${DUMP}" ] && echo "  $(wc -c < "${DUMP}") bytes" >&2
-
+    _cache_save
     echo "重启 mosdns..." >&2
     mos_stop
     mos_start
     wait_mos
     echo "mosdns 已就绪" >&2
-
-    if [ -s "${DUMP}" ]; then
-        code=$(curl -s -o /dev/null -w "%{http_code}" -X POST --data-binary @"${DUMP}" "${API}/plugins/lazy_cache/load_dump")
-        if [ "$code" = "200" ]; then
-            new_size=$(curl -s "${API}/plugins/lazy_cache/dump" | wc -c)
-            echo "缓存已恢复 (${new_size} bytes)" >&2
-        else
-            echo "缓存恢复失败 (HTTP ${code})" >&2
-        fi
-        rm -f "${DUMP}"
-    fi
+    _cache_load
     echo "完成" >&2
-}
-
-cmd_cf() {
-    echo "下载 Cloudflare IPv4..." >&2
-    curl -s --connect-timeout 10 https://www.cloudflare.com/ips-v4/ > "${CIDR}" || die "下载失败"
-    echo "" >> "${CIDR}"
-    echo "下载 Cloudflare IPv6..." >&2
-    curl -s --connect-timeout 10 https://www.cloudflare.com/ips-v6/ >> "${CIDR}" || die "下载失败"
-    [ $(wc -c < "${CIDR}") -lt 100 ] && die "CIDR 内容异常"
-    echo "已更新 $(wc -l < "${CIDR}") 个 CIDR" >&2
-    cmd_reload
 }
 
 cmd_clear() {
     if [ -n "$1" ]; then
-        case "$1" in ''|*[!0-9]*) die "请输入 1-99 的数值" ;; esac
-        [ "$1" -lt 1 ] || [ "$1" -gt 99 ] && die "数值需在 1-99 之间"
+        case "$1" in ''|*[!0-9]*) die "请输入数值" ;; esac
+        [ "$1" -lt 1 ] && die "数值需 ≥ 1"
         local max=$(($1 * 1024 * 1024))
         local size=$(wc -c < "${LOG}" 2>/dev/null || echo 0)
         if [ "$size" -lt "$max" ]; then
@@ -109,7 +198,7 @@ cmd_clear() {
 }
 
 cmd_flush() {
-    curl -s "${API}/plugins/lazy_cache/flush" > /dev/null
+    curl -s -f "${API}/plugins/lazy_cache/flush" > /dev/null || die "清空缓存失败"
     echo "缓存已清空" >&2
 }
 
@@ -123,6 +212,7 @@ _ensure_started() {
 
 cmd_start() {
     _ensure_started
+    _cache_load
     echo "启动日志转发..." >&2
     ${LOGINIT} start
     echo "日志转发已启动" >&2
@@ -130,28 +220,46 @@ cmd_start() {
 
 cmd_stop() {
     echo "停止 mosdns..." >&2
+    _cache_save
     mos_stop
-    sleep 1
     mos_running && die "mosdns 未能停止"
     ${LOGINIT} stop 2>/dev/null
     echo "已停止" >&2
 }
 
-cmd_run() { _ensure_started; }
+cmd_hook() {
+    luci_has || die "luci-app-mosdns 未安装"
+    local script=$(_get_mosdns_script_path)
+    [ -n "$script" ] || die "无法获取 MOSDNS_SCRIPT 路径"
+    [ -f "$script" ] || die "脚本 $script 不存在"
+
+    if [ "$1" = "--remove" ]; then
+        _hook_remove "$script"
+    else
+        _hook_inject "$script"
+    fi
+}
+
+cmd_init() {
+    _remove_domains "/etc/mosdns/rule/direct-need-to-remove.txt" "/var/mosdns/geosite_cn.txt"
+    _remove_domains "/etc/mosdns/rule/proxy-need-to-remove.txt" "/var/mosdns/geosite_geolocation-!cn.txt"
+    _remove_domains "/etc/mosdns/rule/reject-need-to-remove.txt" "/var/mosdns/geosite_category-ads-all.txt"
+    #${LOGINIT} restart >/dev/null 2>&1 &
+}
 
 # ── 入口 ────────────────────────────────────────────────────
 
 case "$1" in
     reload) cmd_reload ;;
-    cf)     cmd_cf ;;
     clear)  cmd_clear "$2" ;;
     flush)  cmd_flush ;;
     start)  cmd_start ;;
     stop)   cmd_stop ;;
-    run)    cmd_run ;;
-    *)      echo "用法: mosdns-cli {reload|cf|clear [M]|flush|start|stop|run}" >&2
+    hook)   cmd_hook "$2" ;;
+    init)   cmd_init ;;
+    *)      echo "用法: mosdns-cli {reload|cf|clear [M]|flush|start|stop|hook [--remove]|init}" >&2
             echo "  reload  热重载（保留缓存）  cf    更新 CF CIDR" >&2
             echo "  clear   清空日志（可带 M）  flush 清空缓存" >&2
-            echo "  start   启动 mosdns + 日志   run   仅启动 mosdns" >&2
-            exit 1 ;;
-esac
+            echo "  start   启动 mosdns + 日志   stop  停止 mosdns + 日志" >&2
+            echo "  hook    注入/移除清理钩子   init  清理错分域名" >&2
+            exit 1 ;;esac

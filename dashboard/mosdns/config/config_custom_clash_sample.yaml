@@ -106,11 +106,17 @@ plugins:
         - "/var/mosdns/geosite_hulu.txt"
         - "/etc/mosdns/rule/streaming.txt"
 
+  # 私有/内网 IP 段 — 用于 has_resp_sequence 中直接放行，无需后续 TTL/CF 处理
+  - tag: geoip_private
+    type: ip_set
+    args:
+      files: ["/var/mosdns/geoip_private.txt"]
+
   # Cloudflare IP 段 — 用于 has_resp_sequence 中将 Cloudflare IP 替换为自定义地址
   - tag: cloudflare_cidr
     type: ip_set
     args:
-      files: ["/etc/mosdns/rule/cloudflare-cidr.txt"]
+      files: ["/var/mosdns/geoip_cloudflare.txt"]
 
   # =========================================================================
   # DNS 缓存
@@ -127,6 +133,8 @@ plugins:
     args:
       size: 8000
       lazy_cache_ttl: 86400
+      dump_file: /etc/mosdns/cache.dump
+      dump_interval: 600
 
   # =========================================================================
   # DNS 上游服务器 (forward 插件)
@@ -332,6 +340,9 @@ plugins:
   - tag: has_resp_sequence
     type: sequence
     args:
+      # 私有 IP 直接放行 — 无需 TTL 修改等后续处理
+      - matches: resp_ip $geoip_private
+        exec: accept
       - matches: qname $ddnslist
         exec: $modify_ddns_ttl
       - matches: "!qname $ddnslist"

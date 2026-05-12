@@ -107,11 +107,17 @@ plugins:
         - "/var/mosdns/geosite_hulu.txt"
         - "/etc/mosdns/rule/streaming.txt"
 
+  # 私有/内网 IP 段 — 用于 has_resp_sequence 中直接放行，无需后续 TTL/CF 处理
+  - tag: geoip_private
+    type: ip_set
+    args:
+      files: ["/var/mosdns/geoip_private.txt"]
+
   # Cloudflare IP 段 — 用于 has_resp_sequence 中将 Cloudflare IP 替换为自定义地址
   - tag: cloudflare_cidr
     type: ip_set
     args:
-      files: ["/etc/mosdns/rule/cloudflare-cidr.txt"]
+      files: ["/var/mosdns/geoip_cloudflare.txt"]
 
   # =========================================================================
   # DNS 缓存
@@ -128,6 +134,8 @@ plugins:
     args:
       size: 8000
       lazy_cache_ttl: 86400
+      dump_file: /etc/mosdns/cache.dump
+      dump_interval: 600
 
   # =========================================================================
   # DNS 上游服务器 (forward 插件)
@@ -156,6 +164,7 @@ plugins:
         - addr: "223.5.5.5"       # 替换为你的运营商 DNS 以获得最快 CDN
         - addr: "119.29.29.29"
 
+  # enable_pipeline: true 启用 HTTP/2 连接复用降低延迟；如遇问题可改回 false
   # 国外 DNS 双上游 (Google + Cloudflare) — 非国内域名、灰名单使用
   - tag: forward_remote
     type: forward
@@ -164,12 +173,12 @@ plugins:
       upstreams:
         - addr: "https://8.8.8.8/dns-query"
           bootstrap: "223.5.5.5"
-          enable_pipeline: false
+          enable_pipeline: true
           insecure_skip_verify: false
           idle_timeout: 30
         - addr: "https://1.1.1.1/dns-query"
           bootstrap: "223.5.5.5"
-          enable_pipeline: false
+          enable_pipeline: true
           insecure_skip_verify: false
           idle_timeout: 30
 
@@ -188,7 +197,7 @@ plugins:
       upstreams:
         - addr: "https://8.8.8.8/dns-query"
           bootstrap: "223.5.5.5"
-          enable_pipeline: false
+          enable_pipeline: true
           insecure_skip_verify: false
           idle_timeout: 30
 
@@ -200,7 +209,7 @@ plugins:
       upstreams:
         - addr: "https://1.1.1.1/dns-query"
           bootstrap: "223.5.5.5"
-          enable_pipeline: false
+          enable_pipeline: true
           insecure_skip_verify: false
           idle_timeout: 30
 
@@ -212,7 +221,7 @@ plugins:
       upstreams:
         - addr: "https://8.8.8.8/dns-query"
           bootstrap: "223.5.5.5"
-          enable_pipeline: false
+          enable_pipeline: true
           insecure_skip_verify: false
           idle_timeout: 30
 
@@ -344,6 +353,9 @@ plugins:
   - tag: has_resp_sequence
     type: sequence
     args:
+      # 私有 IP 直接放行 — 无需 TTL 修改等后续处理
+      - matches: resp_ip $geoip_private
+        exec: accept
       - matches: qname $ddnslist
         exec: $modify_ddns_ttl
       - matches: "!qname $ddnslist"

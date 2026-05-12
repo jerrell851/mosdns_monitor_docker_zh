@@ -2,7 +2,7 @@
 
 # mosdns — DNS 分流 + Grafana 监控方案
 
-> **代码设计**：Jerrell &nbsp;|&nbsp; **代码助手**：DeepSeek &nbsp;|&nbsp; **许可**：[GPL v3.0](LICENSE)
+> **二创代码设计**：Jerrell &nbsp;|&nbsp; **代码助手**：DeepSeek &nbsp;|&nbsp; **许可**：[GPL v3.0](LICENSE)
 
 基于 [mosdns](https://github.com/IrineSistiana/mosdns) v5 的 DNS 分流部署方案，配合 [OpenClash](https://github.com/vernesong/OpenClash) 实现零泄露代理。通过 Docker Compose 一键部署 Loki + Prometheus + Grafana 监控栈，提供 DNS 查询日志采集、实时指标监控和汉化可视化面板。
 
@@ -10,7 +10,7 @@
 
 ## 重要：如何验证 DNS 是否泄露
 
-DNS 泄露测试站质量参差不齐，且分 DNS 架构天然与部分测试站的检测模型冲突。以下是实测结论。
+DNS 泄露测试站质量参差不齐，且分 DNS 架构天然与部分测试站的检测模型冲突。以下是实测情况说明。
 
 ### 推荐的测试站
 
@@ -56,42 +56,6 @@ grep "dnsleaktest" /var/log/mosdns.log | tail -5
 > **核心原则**：不要只看测试站报了哪些 DNS 服务器。看 mosdns 日志——`fallback_remote` / `forward_remote` 说明路径正确，测试站看到的是上游递归链而非你的直接查询。
 
 ---
-
-### ⚠️ DNS 泄露真实路径（系统前端模式，2026-05）
-
-上述测试站钓鱼行为与真实 DNS 泄露是两回事。生产环境实测发现**系统前端模式下存在真实 DNS 泄露，根因在 Clash 的 DNS 配置，而非 mosdns。**
-
-#### 泄露机制
-
-Clash `redir-host` 模式下，`nameserver` 是**默认** DNS 上游。配置使用 `https://dns.alidns.com/dns-query`（阿里 DoH），而 `fallback`（8.8.8.8/1.1.1.1）**仅在 `fallback-filter` 命中的域名上才启用**。原 `fallback-filter.geosite: [gfw]` 只覆盖已知被墙域名，导致大量未在 gfw 列表中的境外域名默认走阿里 DNS 解析：
-
-```
-客户端 → mosdns :53 → geosite_no_cn 匹配 → 127.0.0.1:7874 (Clash DNS)
-→ 域名不在 gfw 列表 → nameserver: https://dns.alidns.com/dns-query  ← 泄露
-```
-
-> `gfw` 是 `geolocation-!cn` 的**子集**（被墙域名 ⊆ 境外域名）。用 `geolocation-!cn` 替换 `gfw` 可覆盖所有境外域名，同时包含原有 gfw 列表。
-
-#### geosite 数据分类缺陷
-
-实测发现 v2ray-rules-dat 将大量 Google APIs 域名归入 `geosite:cn`，且这些域名**不在** `geosite:geolocation-!cn` 中：
-
-```
-full:safebrowsing.googleapis.com
-full:fonts.googleapis.com
-full:crashlyticsreports-pa.googleapis.com
-full:clientservices.googleapis.com
-full:imasdk.googleapis.com
-full:tac.googleapis.com
-... (共 10+ 个 googleapis.com 子域名)
-```
-
-这是设计行为——这些 Google API 在中国可正常访问、服务于国内 App，因此被归为"国内域名"。后果是这些域名在 **mosdns 层**就被 Step 12（geosite_cn）匹配，走国内 ISP DNS 明文查询：
-
-```
-safebrowsing.googleapis.com → mosdns Step 12 geosite_cn 匹配
-→ forward_local (ISP DNS 明文 UDP)  ← 泄露
-```
 
 #### 双层防护
 
@@ -193,7 +157,7 @@ OpenWrt 路由器 (192.168.11.1)            Docker 主机 (192.168.11.200)
 ## 快速开始
 
 <details open>
-<summary><b>第一步：安装 mosdns</b></summary>
+<summary><b>第一步：安装 mosdns（根据你路由器系统选择对应zip，这里只是示例）</b></summary>
 
 ```bash
 wget https://github.com/IrineSistiana/mosdns/releases/latest/download/mosdns-linux-amd64.zip
@@ -201,13 +165,13 @@ unzip mosdns-linux-amd64.zip -d /usr/bin/
 chmod +x /usr/bin/mosdns
 ```
 
-> 如果安装 [luci-app-mosdns](https://github.com/sbwml/luci-app-mosdns)，使用其"GeoData 导出"功能可自动生成规则文件，无需手动下载。
+> 如果安装上 [luci-app-mosdns](https://github.com/sbwml/luci-app-mosdns)，后续可使用其"GeoData 导出"功能及自动更新数据功能，实现列表免维。
 
-**GeoData 导出标签**：
+**GeoData 导出功能模块中手动添加以下标签**：
 
 ```
-GeoSite: cn, gfw, apple, category-ads-all, geolocation-!cn, disney, hulu, netflix
-GeoIP:  cn, private
+GeoSite类: cn, apple, category-ads-all, geolocation-!cn, disney, hulu, netflix
+GeoIP类:  cn, private, cloudflare
 ```
 
 #### 没有 GeoData 时如何先跑起来
@@ -218,9 +182,9 @@ GeoIP:  cn, private
 
 ```bash
 cd /var/mosdns
-touch geosite_cn.txt geoip_cn.txt geosite_apple.txt \
+touch geosite_cn.txt geoip_cn.txt geosite_apple.txt geoip_private.txt \
       geosite_geolocation-!cn.txt geosite_category-ads-all.txt \
-      geosite_disney.txt geosite_netflix.txt geosite_hulu.txt
+      geoip_cloudflare.txt geosite_disney.txt geosite_netflix.txt geosite_hulu.txt
 ```
 
 **`/etc/mosdns/rule/`**（用户自行维护，不会自动生成）：
@@ -228,12 +192,32 @@ touch geosite_cn.txt geoip_cn.txt geosite_apple.txt \
 ```bash
 cd /etc/mosdns/rule
 touch whitelist.txt blocklist.txt greylist.txt ddnslist.txt \
-      hosts.txt redirect.txt streaming.txt cloudflare-cidr.txt
+      hosts.txt redirect.txt streaming.txt cloudflare-cidr.txt \
+      direct-need-to-remove.txt proxy-need-to-remove.txt reject-need-to-remove.txt
+```
+启动成功后可通过 luci-app-mosdns 的"规则列表"功能在线编辑用户自行维护的这些文件。（但PTR 黑名单已废弃）
+
+**GeoData 域名删除功能**（通过 `mosdns-cli hook` 启用）：
+
+GeoData 分类由社区维护，由于上游域名列表存在需要被移除的域名，所以引入需要移除的域名列表。可移除自定义直连、代理和广告域名：三个文件存放路径为 /etc/mosdns/rule/，在 `v2dat_dump` 重建 geo 文件后自动清理错分域名：
+
+| 文件 | 作用 | 目标 geo 文件 |
+| ------ | ------ | ------------- |
+| `direct-need-to-remove.txt` | 从国内列表删除 | `/var/mosdns/geosite_cn.txt` |
+| `proxy-need-to-remove.txt` | 从非国内列表删除 | `/var/mosdns/geosite_geolocation-!cn.txt` |
+| `reject-need-to-remove.txt` | 从广告列表删除 | `/var/mosdns/geosite_category-ads-all.txt` |
+
+每行一个域名，`#` 开头为注释，例如在`reject-need-to-remove.txt`里添加：
+
+```text
+# 移除拦截这个域名，它影响飞书使用
+mon.snssdk.com
+# 移除拦截这个域名，它影响今日头条
+ib.snssdk.com
 ```
 
-> 首次启动后尽快运行 `mosdns-cli cf` 将 `cloudflare-cidr.txt` 更新为完整数据，☁️ CF 优选加速面板依赖它。
+`mosdns-cli hook` 自动注入钩子到 luci 的 `v2dat_dump()` 流程，若需移除勾子可执行 `mosdns-cli hook --remove`。
 
-启动成功后可通过 luci-app-mosdns 的"规则列表"功能在线编辑这些文件。（PTR 黑名单已废弃）
 
 </details>
 
@@ -314,7 +298,7 @@ scp my_config.yaml root@192.168.11.1:/etc/mosdns/config_custom.yaml
       - exec: black_hole 1.1.1.1 2.2.2.2
 ```
 
-从 [CloudflareSpeedTest](https://github.com/XIU2/CloudflareSpeedTest) 测出你网络最快的几个 IP，替换 `1.1.1.1 2.2.2.2`，用空格分隔。同时需运行 `mosdns-cli cf` 下载完整 CIDR 列表，☁️ CF 优选加速面板才会有数据。
+从 [CloudflareSpeedTest](https://github.com/XIU2/CloudflareSpeedTest) 测出你网络最快的几个 IP，替换 `1.1.1.1 2.2.2.2`，用空格分隔。确保 /var/mosdns/geoip_cloudflare.txt 里有数据，☁️ CF 优选加速面板才工作。
 
 </details>
 
@@ -432,12 +416,12 @@ Apple 域名 → 本地 DNS 与 114 DNS 并行竞速
 
 > Apple 域名的目标是**最快国内 CDN**，非防泄露。两端模式均使用 `always_standby: true` 并行竞速，本地 DNS 和 114 DNS 谁快用谁。Apple 域名本身不被墙，114 DNS 查询不存在隐私问题。
 
-#### 关闭广告拦截
+#### 广告拦截开关方法
 
-搜索 `Step 3`，将三行取消注释改回注释：
+在你的config_custom.yaml里搜索 `Step 3`：
 
 ```yaml
-      # Step 3 — 广告域名拦截（按需启用：取消下面三行的注释）
+      # Step 3 — 广告域名拦截（启用方法：取消下面三行的注释，反之关闭）
       # - matches: qname $adlist
       #   exec: $reject_adlist
       # - exec: jump has_resp_sequence
@@ -518,7 +502,7 @@ Apple 域名 → 本地 DNS 与 114 DNS 并行竞速
 | CF 优选 | `nslookup www.cloudflare.com 127.0.0.1` | 如返回 CF IP 段会出现 `cloudflare_accel` / `CF优选加速` | ☁️ CF 优选加速 |
 | AAAA 拦截 | `nslookup -type=AAAA google.com 127.0.0.1` | `reject_aaaa` / `AAAA拦截` | 🚫 广告及黑名单 |
 
-> **验证要点**：同一条命令在"📜 实时日志"面板中观察，`uqid` 相同表示同一次查询。正常的查询链路应该只有 1-2 条日志（命中缓存则只有 cache，否则匹配规则后一条 forward/reject）。如果看到一堆 hosts → redirect → cache → forward 说明 hosts/redirect 中有未命中路径，属于旧版配置（新版已优化为仅命中时打日志）。
+> **验证要点**：同一条命令在"📜 实时日志"面板中观察，`uqid` 相同表示同一次查询。正常的查询链路应该只有 1-2 条日志（命中缓存则只有 cache，否则匹配规则后一条 forward/reject）。
 
 ---
 
@@ -656,7 +640,6 @@ mosdns-cli clear 10     # 日志 ≥ 10MB 时清空
 
 # 启动与停止
 mosdns-cli start      # 启动 mosdns + 日志转发
-mosdns-cli run        # 仅启动 mosdns（不启动日志转发）
 mosdns-cli stop       # 停止 mosdns + 关闭日志转发
 ```
 
