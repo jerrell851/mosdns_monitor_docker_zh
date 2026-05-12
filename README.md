@@ -625,13 +625,14 @@ find-process-mode: off
 # 热重载 mosdns 配置（保留 DNS 缓存）
 mosdns-cli reload
 
-# 更新 Cloudflare CIDR 列表并重载（☁️ CF 优选加速面板依赖此数据）
-mosdns-cli cf
-
 # 缓存管理
 mosdns-cli flush                                               # 清空
 curl http://127.0.0.1:8338/plugins/lazy_cache/dump > cache.json  # 导出
 curl -X POST -d @cache.json http://127.0.0.1:8338/plugins/lazy_cache/load_dump  # 导入
+
+# 开启geo移除差分域名功能
+mosdns-cli hook                # 向Luci-app-mosdns的mosdns.sh中v2dat_dump过程注入钩子
+mosdns-cli hook --remove       # 拆除钩子注入
 
 # 日志清理
 mosdns-cli clear        # 立即清空
