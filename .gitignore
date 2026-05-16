@@ -1,7 +1,7 @@
 *.log
 *.bak
 config_custom.yaml
-config_custom_clash.yaml
+merge_panels.py
 # 忽略所有 .exe 执行文件，但排除（不忽略） build.exe
 *.exe
 !build.exe

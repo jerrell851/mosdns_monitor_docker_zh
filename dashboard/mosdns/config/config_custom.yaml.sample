@@ -1,19 +1,27 @@
 # ============================================================================
-# mosdns DNS 分流配置
+# mosdns DNS 分流配置（通用版 — 支持前后端双模式）
 # 二创设计：Jerrell
-# 部署位置: 重命名为 config_custom.yaml 后部署到 /etc/mosdns/
-# 注意: 此为脱敏示例，部署前需修改 forward_local DNS 和 black_hole IP
-# 监听端口: 0.0.0.0:5335 (UDP+TCP)
+# 部署位置: OpenWrt 路由器 /etc/mosdns/config_custom.yaml
+# 监听端口: 由 mosdns-cli mode 命令管理
+#           backend  → 0.0.0.0:5335 (mosdns 在 Clash 之后)
+#           frontend → 0.0.0.0:53   (mosdns 在 Clash 之前)
 # API 端点: 0.0.0.0:8338 (Prometheus metrics + REST)
+#
+# 模式切换:
+#   mosdns-cli mode backend    切换到后端模式（DoH 上游）
+#   mosdns-cli mode frontend   切换到前端模式（Clash DNS 上游）
+#   切换自动热重载，保留 DNS 缓存
 #
 # 分流逻辑 (main_sequence 执行顺序):
 #   拒绝类 → 广告拦截 → hosts 本地 → redirect 重定向 → 缓存查找
 #   → Apple 国内优选 → DDNS 强制本地 → 白名单本地 → 流媒体专用线路
-#   → 灰名单远程 → 国外域名远程 → 国内域名本地 → 兜底 Google/Cloudflare 竞速
+#   → 灰名单远程 → 国外域名远程 → 国内域名本地 → 兜底竞速
 #
 # 拒绝最先执行：已知恶意/无用域名直接杀掉，避免浪费后续步骤的计算资源。
 #
 # 每条路由都包装了 query_summary 上报到 Grafana 面板。
+#
+# 当前模式: backend
 # ============================================================================
 
 log:
@@ -29,7 +37,12 @@ plugins:
   # =========================================================================
   # 域名/IP 分类规则集 (domain_set / ip_set)
   # 数据来源: v2ray-rules-dat 生成的 geosite/geoip 文本文件 + 自定义规则
+  # 文件路径:
+  #   /var/mosdns/*.txt           — 用luci-app-mosdns GeoData 导出自动生成
+  #   /etc/mosdns/rule/*.txt      — 用户自定义规则，手动维护，luci-app-mosdns在线编辑
   # =========================================================================
+
+  # --- GeoData 自动导出类 ---
 
   # 国内域名 — 走本地 DNS
   - tag: geosite_cn
@@ -49,11 +62,42 @@ plugins:
     args:
       files: ["/var/mosdns/geosite_apple.txt"]
 
-  # 非国内域名 — 直接走 Google/Cloudflare 远程 DNS
+  # 非国内域名 — 走远程 DNS（后端=DoH / 前端=Clash DNS）
   - tag: geosite_no_cn
     type: domain_set
     args:
       files: ["/var/mosdns/geosite_geolocation-!cn.txt"]
+
+  # 广告域名 — 默认启用，可通过 mosdns-cli adlist --remove 关闭
+  - tag: adlist
+    type: domain_set
+    args:
+      files: ["/var/mosdns/geosite_category-ads-all.txt"]
+
+  # 流媒体域名 (Netflix/Disney+/Hulu + 自定义) — 走专用远程 DNS 避免被屏蔽
+  - tag: stream_media
+    type: domain_set
+    args:
+      files:
+        - "/var/mosdns/geosite_disney.txt"
+        - "/var/mosdns/geosite_netflix.txt"
+        - "/var/mosdns/geosite_hulu.txt"
+        - "/etc/mosdns/rule/streaming.txt"
+
+  # 私有/内网 IP 段 — has_resp_sequence 中直接放行，无需后续 TTL/CF 处理
+  - tag: geoip_private
+    type: ip_set
+    args:
+      files: ["/var/mosdns/geoip_private.txt"]
+
+  # Cloudflare IP 段 — has_resp_sequence 中将 Cloudflare IP 替换为自定义地址
+  # 数据由 mosdns-cli cf 下载官方 CIDR 维护（不要替换为 GeoIP AS13335 数据）
+  - tag: cloudflare_cidr
+    type: ip_set
+    args:
+      files: ["/etc/mosdns/rule/cloudflare-cidr.txt"]
+
+  # --- 用户自定义规则类 ---
 
   # 自定义白名单 — 强制走本地 DNS（如公司内网域名）
   - tag: whitelist
@@ -79,7 +123,7 @@ plugins:
     args:
       files: ["/etc/mosdns/rule/ddnslist.txt"]
 
-  # 本地 hosts 静态解析 — 优先级最高（仅次于 hosts_seq 在 main_sequence 的位置）
+  # 本地 hosts 静态解析 — 内存查表，无网络请求
   - tag: hosts
     type: hosts
     args:
@@ -91,44 +135,18 @@ plugins:
     args:
       files: ["/etc/mosdns/rule/redirect.txt"]
 
-  # 广告域名 — 默认注释，按需启用
-  - tag: adlist
-    type: domain_set
-    args:
-      files: ["/var/mosdns/geosite_category-ads-all.txt"]
-
-  # 流媒体域名 (Netflix/Disney+/Hulu + 自定义) — 走专用远程 DNS 避免被屏蔽
-  - tag: stream_media
-    type: domain_set
-    args:
-      files:
-        - "/var/mosdns/geosite_disney.txt"
-        - "/var/mosdns/geosite_netflix.txt"
-        - "/var/mosdns/geosite_hulu.txt"
-        - "/etc/mosdns/rule/streaming.txt"
-
-  # 私有/内网 IP 段 — 用于 has_resp_sequence 中直接放行，无需后续 TTL/CF 处理
-  - tag: geoip_private
-    type: ip_set
-    args:
-      files: ["/var/mosdns/geoip_private.txt"]
-
-  # Cloudflare IP 段 — 用于 has_resp_sequence 中将 Cloudflare IP 替换为自定义地址
-  - tag: cloudflare_cidr
-    type: ip_set
-    args:
-      files: ["/var/mosdns/geoip_cloudflare.txt"]
-
   # =========================================================================
   # DNS 缓存
-  # =========================================================================
-
+  #
   # lazy_cache: 查缓存 → 命中则直接返回
   #             未命中则继续路由，拿到响应后存入缓存
+  # =========================================================================
+
   # ttl 300-86400: 最小 5 分钟、最大 24 小时
   #   - 300s 防止上游超短 TTL 导致频繁回源
   #   - 86400s 符合 BIND/Unbound 行业惯例
   # lazy_cache_ttl 86400: 过期条目再保留 24h，期间有查询则返回旧值并后台刷新
+  # dump_file: 缓存持久化文件，mosdns-cli reload 时 dump→load 保留缓存
   - tag: lazy_cache
     type: cache
     args:
@@ -141,31 +159,42 @@ plugins:
   # DNS 上游服务器 (forward 插件)
   #
   # 命名规则:
-  #   forward_xxx        — 原始转发器
-  #   forward_xxx_upstream — 包装 prefer_ipv4 的序列
-  #   forward_xxx_seq    — 包装 query_summary 日志的序列（供 main_sequence 用）
+  #   forward_xxx           — 原始转发器（定义上游地址）
+  #   forward_xxx_upstream  — 包装 prefer_ipv4 的序列（响应后双栈优先 IPv4）
+  #                          与 reject_aaaa（查询前拦截 AAAA）作用于不同阶段，互为补充
+  #   forward_xxx_seq       — 包装 query_summary 日志的序列（供 main_sequence 用）
+  #
+  # 切换模式:
+  #   mosdns-cli mode 命令自动替换以下 forward 插件块的上游定义:
+  #   forward_local / forward_remote / forward_google / forward_cloudflare
+  #   / forward_stream_media
+  #   用户可编辑末尾 MODE APPENDIX 的 JSON 自定义上游，无需手动编辑 YAML。
+  #
+  #   forward_xinfeng_udp (114 DNS) 不受 mode 命令影响，始终不变。
   # =========================================================================
 
-  # 114 公共 DNS (UDP) — Apple 域名国内查询的备用线路
-  - tag: forward_xinfeng_udp
-    type: forward
-    args:
-      concurrent: 2
-      upstreams:
-        - addr: "114.114.114.114"
-        - addr: "114.114.115.115"
-
-  # 国内 DNS 池 — 用于国内域名、白名单、DDNS
+  # --- forward_local: 国内 DNS 池 ---
+  # 用于国内域名、白名单、DDNS、Apple 域名国内查询
+  # concurrent: 2 竞速模式，所有上游并行查询、谁快用谁
+  # 替换为你的运营商 DNS 以获得最快国内 CDN 解析
   - tag: forward_local
     type: forward
     args:
       concurrent: 2
       upstreams:
-        - addr: "223.5.5.5"       # 替换为你的运营商 DNS 以获得最快 CDN
+        - addr: "223.5.5.5"
+          enable_pipeline: false
+          insecure_skip_verify: false
+          idle_timeout: 30
         - addr: "119.29.29.29"
+          enable_pipeline: false
+          insecure_skip_verify: false
+          idle_timeout: 30
 
-  # enable_pipeline: true 启用 HTTP/2 连接复用降低延迟；如遇问题可改回 false
-  # 国外 DNS 双上游 (Google + Cloudflare) — 非国内域名、灰名单使用
+  # --- forward_remote: 远程 DNS（国外域名、灰名单） ---
+  # backend 模式: Google + Cloudflare DoH 双上游竞速
+  # frontend 模式: 127.0.0.1:7874 (Clash DNS)
+  # 以下为 backend 模式定义，frontend 定义见末尾 MODE APPENDIX
   - tag: forward_remote
     type: forward
     args:
@@ -182,14 +211,19 @@ plugins:
           insecure_skip_verify: false
           idle_timeout: 30
 
+  # forward_remote_upstream: 包装 prefer_ipv4 → forward_remote
+  # prefer_ipv4: 检测域名是否双栈（同时有 A+AAAA），双栈时抑制 AAAA 返回 IPv4
+  # 纯 IPv6 单栈域名不受影响，正常返回 AAAA 记录
   - tag: forward_remote_upstream
     type: sequence
     args:
       - exec: prefer_ipv4
       - exec: $forward_remote
 
-  # Google DNS only — fallback 主查询
-  # 与 forward_remote 的 8.8.8.8 参数一致，但单独拆分以便独立用作 primary
+  # --- forward_google: 兜底主查询 ---
+  # backend 模式: Google DoH
+  # frontend 模式: Clash DNS
+  # 与 forward_remote 的 8.8.8.8 参数一致，单独拆分以便 fallback 中作 primary
   - tag: forward_google
     type: forward
     args:
@@ -201,7 +235,9 @@ plugins:
           insecure_skip_verify: false
           idle_timeout: 30
 
-  # Cloudflare DNS only — fallback 备查询
+  # --- forward_cloudflare: 兜底备查询 ---
+  # backend 模式: Cloudflare DoH
+  # frontend 模式: Clash DNS
   - tag: forward_cloudflare
     type: forward
     args:
@@ -213,7 +249,9 @@ plugins:
           insecure_skip_verify: false
           idle_timeout: 30
 
-  # 流媒体专用 DNS (仅 8.8.8.8) — 避免 1.1.1.1 返回被屏蔽 IP
+  # --- forward_stream_media: 流媒体专用 DNS ---
+  # backend 模式: 仅 8.8.8.8 DoH（避免 1.1.1.1 返回被屏蔽 IP）
+  # frontend 模式: Clash DNS
   - tag: forward_stream_media
     type: forward
     args:
@@ -225,23 +263,38 @@ plugins:
           insecure_skip_verify: false
           idle_timeout: 30
 
+  # forward_stream_media_upstream: 包装 prefer_ipv4 → forward_stream_media
   - tag: forward_stream_media_upstream
     type: sequence
     args:
       - exec: prefer_ipv4
       - exec: $forward_stream_media
 
+  # forward_google_upstream: 包装 prefer_ipv4 → forward_google
+  # fallback 中作 primary
   - tag: forward_google_upstream
     type: sequence
     args:
       - exec: prefer_ipv4
       - exec: $forward_google
 
+  # forward_cloudflare_upstream: 包装 prefer_ipv4 → forward_cloudflare
+  # fallback 中作 secondary
   - tag: forward_cloudflare_upstream
     type: sequence
     args:
       - exec: prefer_ipv4
       - exec: $forward_cloudflare
+
+  # --- forward_xinfeng_udp: Apple 域名备用 114 DNS ---
+  # 两种模式通用，不参与 mode 切换
+  - tag: forward_xinfeng_udp
+    type: forward
+    args:
+      concurrent: 2
+      upstreams:
+        - addr: "114.114.114.114"
+        - addr: "114.114.115.115"
 
   # Apple 备用 114 DNS — 包装 query_summary 供面板展示
   - tag: forward_xinfeng_udp_seq
@@ -251,7 +304,7 @@ plugins:
       - exec: $forward_xinfeng_udp
 
   # =========================================================================
-  # TTL 修改 — 在 has_resp_sequence 中调用
+  # TTL 修改 — has_resp_sequence 中根据域名类型调整 TTL
   # =========================================================================
 
   # 通用 TTL: 最小 5 分钟，最大 24 小时
@@ -272,26 +325,93 @@ plugins:
   # 日志包装序列 — 在每个转发/拒绝动作前插入 query_summary 调用
   # 产生的日志经 vector → loki → Grafana 面板展示
   # 这些序列不修改 DNS 响应，仅用于可观测性
+  #
+  # query_summary 参数对应 Grafana 面板的 message_zh 字段:
+  #   forward_local      → "本地查询"
+  #   forward_remote     → "远程查询" / "代理查询"
+  #   forward_stream_media → "流媒体查询"
+  #   fallback_remote    → "备用查询"
+  #   apple_fallback     → "Apple查询"
+  #   cloudflare_accel   → "CF优选加速"
+  #   reject_blocklist   → "黑名单拒绝"
+  #   reject_aaaa        → "AAAA拦截"
+  #   reject_ptr         → "PTR拒绝"
+  #   reject_https       → "HTTPS拒绝"
+  #   hosts              → "Hosts解析"
+  #   redirect           → "重定向"
+  #   cache              → "缓存命中"
   # =========================================================================
 
+  # --- 拒绝类序列 ---
+
+  # AAAA (qtype 28) 拦截 — 查询前直接拒绝，不向上游发出 AAAA 查询
+  # 与 prefer_ipv4 互补: reject_aaaa 在查询前拦截，prefer_ipv4 在响应后双栈筛选
+  # 由 mosdns-cli ipv6 命令控制在哪些序列中调用此插件
+  - tag: reject_aaaa
+    type: sequence
+    args:
+      - exec: query_summary reject_aaaa
+      - exec: reject 3
+
+  # 黑名单拒绝
+  - tag: reject_blocklist
+    type: sequence
+    args:
+      - exec: query_summary reject_blocklist
+      - exec: reject 3
+
+  # 广告域名拦截 — 由 mosdns-cli adlist 命令控制启用/关闭
+  - tag: reject_adlist
+    type: sequence
+    args:
+      - exec: query_summary reject_blocklist
+      - exec: reject 3
+
+  # PTR 反向查询拒绝 — 减少不必要的反向解析
+  - tag: reject_ptr
+    type: sequence
+    args:
+      - exec: query_summary reject_ptr
+      - exec: reject 3
+
+  # HTTPS 类型 (qtype 65) 直接拒绝 — 减少 SVCB/HTTPS 记录查询
+  - tag: reject_https
+    type: sequence
+    args:
+      - exec: query_summary reject_https
+      - exec: reject 3
+
+  # Cloudflare 优选 IP 替换 — 检测到响应 IP 在 Cloudflare IP 段内时替换为优选 IP
+  # 优选 IP 由 mosdns-cli cf <IP...> 写入
+  - tag: cloudflare_accel
+    type: sequence
+    args:
+      - exec: query_summary cloudflare_accel
+      - exec: black_hole 162.159.34.1 104.18.33.173 104.18.228.160 104.24.24.142 162.159.138.18 104.17.140.128
+
+  # 国内 DNS 查询日志序列
   - tag: forward_local_seq
     type: sequence
     args:
       - exec: query_summary forward_local
       - exec: $forward_local
 
+  # 远程 DNS 查询日志序列
+  # 注意: 此处不包含 qtype 28 AAAA 拦截，AAAA 拦截由 mosdns-cli ipv6 命令独立管理
   - tag: forward_remote_seq
     type: sequence
     args:
       - exec: query_summary forward_remote
       - exec: $forward_remote_upstream
 
+  # 流媒体查询日志序列
   - tag: forward_stream_media_seq
     type: sequence
     args:
       - exec: query_summary forward_stream_media
       - exec: $forward_stream_media_upstream
 
+  # hosts 本地解析日志序列 — 有响应才记录（减少日志噪音）
   - tag: hosts_seq
     type: sequence
     args:
@@ -299,6 +419,7 @@ plugins:
       - matches: has_resp
         exec: query_summary hosts
 
+  # redirect 重定向日志序列 — 有响应才记录
   - tag: redirect_seq
     type: sequence
     args:
@@ -306,48 +427,18 @@ plugins:
       - matches: has_resp
         exec: query_summary redirect
 
-  - tag: reject_blocklist
-    type: sequence
-    args:
-      - exec: query_summary reject_blocklist
-      - exec: reject 3
-
-  # 广告域名拦截 — 默认注释，取消 main_sequence 中的注释即可启用
-  - tag: reject_adlist
-    type: sequence
-    args:
-      - exec: query_summary reject_blocklist
-      - exec: reject 3
-
-  - tag: reject_ptr
-    type: sequence
-    args:
-      - exec: query_summary reject_ptr
-      - exec: reject 3
-
-  # HTTPS 类型 (qtype 65) 直接拒绝 — 减少不必要的加密 SVCB/HTTPS 记录查询
-  - tag: reject_https
-    type: sequence
-    args:
-      - exec: query_summary reject_https
-      - exec: reject 3
-
-  # Cloudflare 优选 IP 替换 — 包装 query_summary 供面板展示
-  - tag: cloudflare_accel
-    type: sequence
-    args:
-      - exec: query_summary cloudflare_accel
-      - exec: black_hole 1.1.1.1 2.2.2.2    # 替换为 https://github.com/XIU2/CloudflareSpeedTest 测出的最快 IP
-
   # =========================================================================
-  # 响应后处理 — main_sequence 中通过 jump 跳转到这里
+  # 响应后处理序列 — main_sequence 中每步通过 jump 跳转到这里
   #
   # 流程:
-  #   1. DDNS 域名 → TTL 固定 5s
-  #   2. 非 DDNS 域名 → TTL 限制 300-86400s
-  #   3. 非白名单/灰名单/流媒体 且 返回了 Cloudflare IP → 替换为自定义 IP
+  #   1. 私有 IP → 直接放行（无需后续 TTL/CF 处理）
+  #   2. DDNS 域名 → TTL 固定 5s
+  #   3. 非 DDNS 域名 → TTL 限制 300-86400s
+  #   4. 非白名单/灰名单/流媒体 且返回 Cloudflare IP → 替换为优选 IP
   #      (避免 Cloudflare 代理 IP 被错误使用)
-  #   4. 有响应 → accept 返回给客户端
+  #   5. 有响应 → accept 返回给客户端
+  #
+  # 无响应时跳回 main_sequence 继续下一步
   # =========================================================================
 
   - tag: has_resp_sequence
@@ -360,6 +451,8 @@ plugins:
         exec: $modify_ddns_ttl
       - matches: "!qname $ddnslist"
         exec: $modify_ttl
+      # Cloudflare IP 替换: 排除白名单/灰名单/流媒体
+      # 这些类别的域名走特定上游，不应被 CF 优选逻辑干预
       - matches:
           - "!qname $whitelist"
           - "!qname $greylist"
@@ -372,12 +465,17 @@ plugins:
   # =========================================================================
   # Apple 域名特殊处理
   #
-  # query_is_apple_domain:
-  #   匹配 geosite_apple → 调用 apple_domain_fallback
-  # apple_domain_fallback:
-  #   primary: 用本地 DNS 查询 → 检查响应 IP 是否国内 → 非国内则 drop
-  #   secondary: 114 DNS 直接返回（国内 DNS 不可靠时的备用）
-  #   always_standby: true → primary 响应超 100ms 时并行发 secondary
+  # 目标: 最快国内 CDN，非防泄露
+  # 流程:
+  #   1. 匹配 geosite_apple → 进入 apple_domain_fallback
+  #   2. primary: 用本地 DNS 查询 → 检查响应 IP 是否国内
+  #      - 国内 IP → 采纳（国内 CDN 最快）
+  #      - 非国内 IP → drop，采纳 secondary
+  #   3. secondary: 114 DNS 直接返回
+  #   4. always_standby: true → primary 与 secondary 并行竞速
+  #      primary 超过 100ms 时并行发 secondary，谁快用谁
+  #
+  # Apple 域名本身不被墙，114 DNS 查询不存在隐私问题
   # =========================================================================
 
   - tag: query_is_non_local_ip
@@ -399,15 +497,21 @@ plugins:
   # 最终兜底 — main_sequence 最后一步
   #
   # 前面所有规则都没匹配时走到这里
-  # primary: Google DNS (8.8.8.8)
-  # secondary: Cloudflare DNS (1.1.1.1)
-  # always_standby: true → 主备并行竞速，谁快用谁
-  # threshold: 500ms → primary 超过 500ms 则采纳 secondary 结果
   #
-  # 拆分主备为不同上游的理由:
-  #   原来主备都是 forward_remote_upstream (8.8.8.8+1.1.1.1 双上游)
-  #   always_standby 导致每次查询并行打两轮到同一组服务器，双倍负载零冗余
-  #   拆分后 Google 和 Cloudflare 独立故障域，真正的高可用
+  # backend 模式:
+  #   primary: Google DNS (8.8.8.8 DoH)
+  #   secondary: Cloudflare DNS (1.1.1.1 DoH)
+  #   always_standby: true → 主备并行竞速，谁快用谁
+  #   threshold: 500ms → primary 超过 500ms 则采纳 secondary 结果
+  #   拆分主备为不同上游 → Google/Cloudflare 独立故障域，真正高可用
+  #
+  # frontend 模式:
+  #   primary + secondary 都指向 Clash DNS (127.0.0.1:7874)
+  #   always_standby: false → 仅 primary 超时时才发 secondary
+  #   避免向同一 Clash 实例发送双倍查询
+  #   Clash 内部处理实际的上游选择和故障转移
+  #
+  # always_standby 值由 mosdns-cli mode 命令自动切换
   # =========================================================================
 
   - tag: fallback
@@ -418,6 +522,8 @@ plugins:
       threshold: 500
       always_standby: true
 
+  # fallback_seq: 包装 query_summary → fallback
+  # 注意: 此处不包含 qtype 28 AAAA 拦截，AAAA 拦截由 mosdns-cli ipv6 命令管理
   - tag: fallback_seq
     type: sequence
     args:
@@ -429,6 +535,7 @@ plugins:
   #
   # 命名规则: query_is_<category>_domain
   # 逻辑: 匹配分类规则集 → 调用对应的上游序列 → 否则 return (跳过)
+  # 每个 query_is_*_domain 序列只包含自己负责的类别判断
   # =========================================================================
 
   # Apple 域名 → 国内 DNS 查询 + IP 校验，非国内 IP 则回退 114 DNS
@@ -447,7 +554,7 @@ plugins:
         exec: $forward_local_seq
 
   # 非国内域名 (geosite_no_cn) → 远程 DNS
-  # 在 geosite_cn 之前匹配，确保同时存在于两个列表的域名走远程 DNS
+  # 在 geosite_cn 之前匹配，确保同时存在于两个列表的域名优先走远程 DNS
   - tag: query_is_no_local_domain
     type: sequence
     args:
@@ -476,7 +583,8 @@ plugins:
       - matches: qname $greylist
         exec: $forward_remote_seq
 
-  # 拒绝类 — 黑名单 或 PTR 反向查询 或 HTTPS 类型
+  # 拒绝类 — 黑名单 / PTR 反向查询 / HTTPS 类型
+  # 三项按顺序检查，命中即拒绝
   - tag: query_is_reject_domain
     type: sequence
     args:
@@ -487,7 +595,7 @@ plugins:
       - matches: qtype 65
         exec: $reject_https
 
-  # 流媒体域名 → 专用 8.8.8.8 线路 (避免 1.1.1.1 可能返回被屏蔽 IP)
+  # 流媒体域名 → 专用远程 DNS 线路
   - tag: query_is_stream_media_domain
     type: sequence
     args:
@@ -501,24 +609,26 @@ plugins:
   #
   #   Step 1  metrics_collector         — Prometheus 指标采集 (所有查询)
   #   Step 2  黑名单/PTR/HTTPS 拒绝     — 直接 reject (已知恶意/无用，优先杀掉)
-  #   Step 3  广告域名 (默认注释)        — 拒绝
-  #   Step 4  hosts_seq                 — 本地 hosts 文件匹配 (内存查表)
+  #   Step 3  广告域名                  — 拒绝 (可通过 mosdns-cli adlist 开关)
+  #   Step 4  hosts_seq                 — 本地 hosts 文件匹配 (内存查表，极快)
   #   Step 5  redirect_seq              — redirect 重定向规则
   #   Step 6  lazy_cache                — DNS 缓存查找 (仅排除 DDNS)
   #   Step 7  Apple 域名                — 国内 CDN 优选 + 114 DNS 备用
   #   Step 8  DDNS 域名                 — 强制本地 DNS
-  #   Step 9  自定义白名单               — 强制本地 DNS
-  #   Step 10 流媒体域名                — 专用 Google DNS
-  #   Step 11 灰名单 (防污染)            — 强制远程 DNS
-  #   Step 12 非国内域名 (geosite_no_cn) — Google + Cloudflare
+  #   Step 9  自定义白名单              — 强制本地 DNS
+  #   Step 10 流媒体域名                — 专用远程 DNS 线路
+  #   Step 11 灰名单 (防污染)           — 远程 DNS
+  #   Step 12 非国内域名 (geosite_no_cn)— 远程 DNS
   #           在 geosite_cn 之前匹配，确保同时存在于两个列表的域名走远程 DNS
   #   Step 13 国内域名 (geosite_cn)     — 国内 DNS 池
   #           仅纯国内域名走到这里（不在 geosite_no_cn 中的 cn 域名）
-  #   Step 14 fallback 兜底             — Google vs Cloudflare 竞速
+  #   Step 14 fallback 兜底             — 竞速查询
   #
   #   每步之后 jump has_resp_sequence:
-  #     有响应 → TTL 处理 → Cloudflare IP 黑名单 → accept 返回
+  #     有响应 → TTL 处理 → Cloudflare IP 替换 → accept 返回
   #     无响应 → 继续下一步
+  #
+  # 每个步骤独立为 query_is_*_domain 序列，便于维护和调试
   # =========================================================================
 
   - tag: main_sequence
@@ -527,12 +637,42 @@ plugins:
       # Step 1 — Prometheus 指标采集 (所有查询)
       - exec: metrics_collector metrics
 
+      # Step 1.5 — AAAA IPv6 拦截（独立于 prefer_ipv4，由 mosdns-cli ipv6 命令控制）
+      # 原理: 白名单排除法 — 在 main_sequence 早期集中拦截，不加到各个序列里
+      # --remote 规则: 拦截非国内域名的 AAAA（国外/未知拒绝，国内/Apple/白名单/DDNS 放行）
+      # --local  规则: 拦截国内域名的 AAAA（默认注释，启用后仅 geosite_cn 域名的 AAAA 被拒绝）
+      # 同时启用 = --dual / 全部注释 = 全球 IPv6 放行
+      #
+      # ====== [ipv6_remote] ======
+      # - matches:
+      #     - qtype 28
+      #     - "!qname $geosite_cn"
+      #     - "!qname $geosite_apple"
+      #     - "!qname $whitelist"
+      #     - "!qname $ddnslist"
+      #   exec: $reject_aaaa
+      # - exec: jump has_resp_sequence
+      # ====== [/ipv6_remote] ======
+      #
+      # ====== [ipv6_local] ======
+      # - matches:
+      #     - qtype 28
+      #     - qname $geosite_cn
+      #     - "!qname $geosite_apple"
+      #     - "!qname $whitelist"
+      #     - "!qname $ddnslist"
+      #   exec: $reject_aaaa
+      # - exec: jump has_resp_sequence
+      # ====== [/ipv6_local] ======
+
       # Step 2 — 拒绝类 (直接杀掉，省去后续所有步骤)
       #   黑名单域名、PTR 反向查询、HTTPS/SVCB 类型
       - exec: $query_is_reject_domain
       - exec: jump has_resp_sequence
 
-      # Step 3 — 广告域名拦截（按需启用: 关闭方法是为下面三行加注释）
+      # Step 3 — 广告域名拦截
+      #   启用: mosdns-cli adlist         (取消下面三行注释)
+      #   关闭: mosdns-cli adlist --remove (注释下面三行)
       - matches: qname $adlist
         exec: $reject_adlist
       - exec: jump has_resp_sequence
@@ -545,8 +685,8 @@ plugins:
       - exec: $redirect_seq
       - exec: jump has_resp_sequence
 
-      # Step 6 — 缓存 (排除 DDNS，DDNS 需要实时解析)
-      #   拒绝类已在前置步骤处理，此处无需再排除 blocklist/local_ptr
+      # Step 6 — 缓存查找 (排除 DDNS，DDNS 需要实时解析)
+      #   拒绝类已在前置步骤处理，此处无需再排除 blocklist/reject_ptr
       - matches: "!qname $ddnslist"
         exec: $lazy_cache
       - matches:
@@ -559,7 +699,7 @@ plugins:
       - exec: $query_is_apple_domain
       - exec: jump has_resp_sequence
 
-      # Step 8 — DDNS 强制本地
+      # Step 8 — DDNS 强制本地 DNS
       - exec: $query_is_ddns_domain
       - exec: jump has_resp_sequence
 
@@ -585,12 +725,16 @@ plugins:
       - exec: $query_is_local_domain
       - exec: jump has_resp_sequence
 
-      # Step 14 — 兜底: Google vs Cloudflare 竞速
+      # Step 14 — 兜底竞速
       - exec: $fallback_seq
       - exec: jump has_resp_sequence
 
   # =========================================================================
   # 服务端监听 — DNS 查询入口
+  # 两种模式监听不同端口:
+  #   backend  → :5335 (dnsmasq 在 :53，mosdns 在 :5335)
+  #   frontend → :53   (mosdns 直接接管 :53，dnsmasq 改到 :5335)
+  # 端口由 mosdns-cli mode 命令自动切换
   # =========================================================================
 
   - tag: udp_server
@@ -604,3 +748,96 @@ plugins:
     args:
       entry: main_sequence
       listen: ":5335"
+
+# ============================================================================
+# MODE APPENDIX (mosdns-cli mode 命令使用 — 可手动编辑 JSON 自定义上游)
+#
+# 此段存放两种模式下的 forward 插件定义，作为 mode 切换的数据源。
+# 脚本从此段提取 JSON → 按固定 YAML 格式规则生成插件块 → 替换配置正文。
+#
+# JSON 字段说明:
+#   concurrent:           并发查询数（1=顺序, 2+=竞速）
+#   upstreams:            上游 DNS 服务器列表
+#     addr:               服务器地址（必填）
+#     bootstrap:          DoH 域名解析引导（可选，仅 DoH 需要）
+#     enable_pipeline:    HTTP/2 连接复用（可选，默认 false）
+#     insecure_skip_verify: 跳过 TLS 证书验证（可选，默认 false）
+#     idle_timeout:       连接空闲超时秒数（可选）
+#
+# 修改建议:
+#   - 改 forward_local 换运营商 DNS 以获得最快 CDN
+#   - 改 forward_remote 换 DoH 服务器或 Clash 端口
+#   - 每个 upstream 至少需要 "addr" 字段，其他可选
+#   - 编辑后执行 mosdns-cli mode <当前模式> 应用更改
+# ============================================================================
+# @MODE_JSON
+# {
+#   "backend": {
+#     "forward_local": {
+#       "concurrent": 2,
+#       "upstreams": [
+#         {"addr": "223.5.5.5", "enable_pipeline": false, "insecure_skip_verify": false, "idle_timeout": 30},
+#         {"addr": "119.29.29.29", "enable_pipeline": false, "insecure_skip_verify": false, "idle_timeout": 30}
+#       ]
+#     },
+#     "forward_remote": {
+#       "concurrent": 2,
+#       "upstreams": [
+#         {"addr": "https://8.8.8.8/dns-query", "bootstrap": "223.5.5.5", "enable_pipeline": true, "insecure_skip_verify": false, "idle_timeout": 30},
+#         {"addr": "https://1.1.1.1/dns-query", "bootstrap": "223.5.5.5", "enable_pipeline": true, "insecure_skip_verify": false, "idle_timeout": 30}
+#       ]
+#     },
+#     "forward_google": {
+#       "concurrent": 1,
+#       "upstreams": [
+#         {"addr": "https://8.8.8.8/dns-query", "bootstrap": "223.5.5.5", "enable_pipeline": true, "insecure_skip_verify": false, "idle_timeout": 30}
+#       ]
+#     },
+#     "forward_cloudflare": {
+#       "concurrent": 1,
+#       "upstreams": [
+#         {"addr": "https://1.1.1.1/dns-query", "bootstrap": "223.5.5.5", "enable_pipeline": true, "insecure_skip_verify": false, "idle_timeout": 30}
+#       ]
+#     },
+#     "forward_stream_media": {
+#       "concurrent": 2,
+#       "upstreams": [
+#         {"addr": "https://8.8.8.8/dns-query", "bootstrap": "223.5.5.5", "enable_pipeline": true, "insecure_skip_verify": false, "idle_timeout": 30}
+#       ]
+#     }
+#   },
+#   "frontend": {
+#     "forward_local": {
+#       "concurrent": 2,
+#       "upstreams": [
+#         {"addr": "223.5.5.5", "enable_pipeline": false, "insecure_skip_verify": false, "idle_timeout": 30},
+#         {"addr": "119.29.29.29", "enable_pipeline": false, "insecure_skip_verify": false, "idle_timeout": 30}
+#       ]
+#     },
+#     "forward_remote": {
+#       "concurrent": 1,
+#       "upstreams": [
+#         {"addr": "127.0.0.1:7874"}
+#       ]
+#     },
+#     "forward_google": {
+#       "concurrent": 1,
+#       "upstreams": [
+#         {"addr": "127.0.0.1:7874"}
+#       ]
+#     },
+#     "forward_cloudflare": {
+#       "concurrent": 1,
+#       "upstreams": [
+#         {"addr": "127.0.0.1:7874"}
+#       ]
+#     },
+#     "forward_stream_media": {
+#       "concurrent": 2,
+#       "upstreams": [
+#         {"addr": "127.0.0.1:7874"}
+#       ]
+#     }
+#   }
+# }
+# @END_MODE_JSON

@@ -4,12 +4,16 @@
 #
 # 用法:
 #   mosdns-cli reload       热重载 mosdns（保留缓存）
+#   mosdns-cli cf [IP...]     更新 CF CIDR + 热重载（无IP参数=关闭优选，带 IP=启用优选）
 #   mosdns-cli clear [M]     清空日志（无参立即清，带参数 ≥ M MB 才清）
+#   mosdns-cli dns [--remove]  透明劫持（端口 :53）启用或禁用
 #   mosdns-cli flush         清空 DNS 缓存
 #   mosdns-cli start         启动 mosdns + 日志转发
 #   mosdns-cli stop          停止 mosdns + 日志转发
 #   mosdns-cli hook [--remove]  注入或移除 v2dat_dump 后置清理钩子
-#   mosdns-cli init             从 geo 文件移除错分域名
+#   mosdns-cli ipv6 [--local|--remote|--dual]  管理 AAAA 拦截（无子参=全部放行）
+#   mosdns-cli adlist [--remove]  启用/关闭广告过滤
+#   mosdns-cli mode {backend|frontend}  切换运行模式（DoH/Clash DNS）
 # ============================================================
 
 API="http://127.0.0.1:8338"
@@ -17,6 +21,7 @@ CONF="/etc/mosdns/config_custom.yaml"
 DIR="/etc/mosdns"
 LOG="/var/log/mosdns.log"
 DUMP="/etc/mosdns/cache.dump"
+CIDR="/etc/mosdns/rule/cloudflare-cidr.txt"
 LUCID="/etc/init.d/mosdns"
 LOGINIT="${LOGINIT:-/etc/init.d/mosdns-log}"
 
@@ -27,6 +32,10 @@ die()  { echo "$@" >&2; exit 1; }
 mos_running() { pidof mosdns > /dev/null 2>&1; }
 
 luci_has()    { [ -x "${LUCID}" ]; }
+
+_is_ipv4() {
+    echo "$1" | awk -F. 'NF==4 && $1<=255 && $2<=255 && $3<=255 && $4<=255 {exit 0} {exit 1}'
+}
 
 # ── DNS 透明劫持（仅系统前端模式 :53）────────────────────────
 # 阻止局域网内硬编码 DNS 的设备绕过 mosdns
@@ -55,6 +64,7 @@ _hijack_teardown() {
     if nft list table inet mosdns >/dev/null 2>&1; then
         nft delete table inet mosdns 2>/dev/null
         uci -q set mosdns.config.local_dns_redirect=0 2>/dev/null && uci -q commit mosdns 2>/dev/null
+        echo "mosdns: DNS 透明劫持已禁用 (port 53)" >&2
     fi
 }
 
@@ -147,16 +157,21 @@ mos_start() {
     else
         /usr/bin/mosdns start -c "${CONF}" -d "${DIR}" </dev/null >/dev/null 2>&1 &
     fi
-    _hijack_setup
 }
 
 mos_stop() {
     if luci_has; then
         ${LUCID} stop 2>/dev/null
+    else
+        killall mosdns 2>/dev/null
     fi
-    killall mosdns 2>/dev/null
-    _hijack_teardown
-    sleep 1
+    # 等待 mosdns 进程退出，释放监听端口（最多 5 秒）
+    local i
+    for i in $(seq 1 5); do
+        pidof mosdns >/dev/null 2>&1 || break
+        sleep 1
+    done
+    pidof mosdns >/dev/null 2>&1 && echo "mosdns: 进程未退出，强制终止" >&2 && killall -9 mosdns 2>/dev/null
 }
 
 wait_mos() {
@@ -174,11 +189,63 @@ cmd_reload() {
     _cache_save
     echo "重启 mosdns..." >&2
     mos_stop
+    sleep 1
     mos_start
     wait_mos
     echo "mosdns 已就绪" >&2
     _cache_load
     echo "完成" >&2
+}
+
+# 切換 has_resp_sequence 中 Cloudflare 优选 IP 替换块的注释状态
+# disable: 注释掉匹配块，关闭 CF 优选；enable: 取消注释
+_cf_toggle_has_resp() {
+    local range start end first_line
+    range=$(awk '/^[[:space:]]*- matches:/{m=NR} /resp_ip \$cloudflare_cidr/{print m, NR+1; exit}' "${CONF}")
+    start="${range%% *}"
+    end="${range##* }"
+    [ -n "$start" ] && [ -n "$end" ] || die "无法定位 Cloudflare 匹配块 (has_resp_sequence)"
+
+    first_line=$(sed -n "${start}p" "${CONF}")
+    if [ "$1" = "disable" ]; then
+        # 仅当首行未被注释时才操作（幂等）
+        echo "$first_line" | grep -q '^[[:space:]]*[^#]' || return 0
+        sed -i "${start},${end}s/^/#/" "${CONF}"
+    else
+        # 仅当首行已被注释时才操作
+        echo "$first_line" | grep -q '^[[:space:]]*#' || return 0
+        sed -i "${start},${end}s/^#//" "${CONF}"
+    fi
+}
+
+cmd_cf() {
+    if [ -n "$1" ]; then
+        for ip in "$@"; do
+            _is_ipv4 "$ip" || die "无效 IPv4: $ip"
+        done
+        [ -f "${CONF}" ] || die "${CONF} 不存在"
+        grep -q 'exec: black_hole' "${CONF}" || die "${CONF} 中未找到 exec: black_hole 行"
+ 
+        # 带 IP → 启用 Cloudflare 优选 + 写入 black_hole IP
+    echo "下载 Cloudflare IPv4..." >&2
+    curl -s --connect-timeout 10 --retry 2 https://www.cloudflare.com/ips-v4/ > "${CIDR}" || die "下载失败"
+    echo "" >> "${CIDR}"
+    echo "下载 Cloudflare IPv6..." >&2
+    curl -s --connect-timeout 10 --retry 2 https://www.cloudflare.com/ips-v6/ >> "${CIDR}" || die "下载失败"
+    [ $(wc -c < "${CIDR}") -lt 100 ] && die "CIDR 内容异常"
+    echo "已更新 $(wc -l < "${CIDR}") 个 CIDR" >&2
+ 
+        _cf_toggle_has_resp enable
+        sed -i "s/^\([[:space:]]*- exec: black_hole\).*/\1 $*/" "${CONF}"
+        printf '已启用 Cloudflare 优选 IP: %s\n' "$*" >&2
+    else
+        # 无参数 → 关闭 Cloudflare 优选
+        [ -f "${CONF}" ] || die "${CONF} 不存在"
+        _cf_toggle_has_resp disable
+        echo "Cloudflare 优选 IP 已关闭" >&2
+    fi
+
+    cmd_reload
 }
 
 cmd_clear() {
@@ -240,26 +307,377 @@ cmd_hook() {
     fi
 }
 
+cmd_dns() {
+    if [ "$1" = "--remove" ]; then
+        _hijack_teardown
+    else
+        _hijack_setup
+    fi
+}
+
 cmd_init() {
-    _remove_domains "/etc/mosdns/rule/direct-need-to-remove.txt" "/var/mosdns/geosite_cn.txt"
-    _remove_domains "/etc/mosdns/rule/proxy-need-to-remove.txt" "/var/mosdns/geosite_geolocation-!cn.txt"
-    _remove_domains "/etc/mosdns/rule/reject-need-to-remove.txt" "/var/mosdns/geosite_category-ads-all.txt"
+    #_remove_domains "/etc/mosdns/rule/direct-need-to-remove.txt" "/var/mosdns/geosite_cn.txt"
+    #_remove_domains "/etc/mosdns/rule/proxy-need-to-remove.txt" "/var/mosdns/geosite_geolocation-!cn.txt"
+    #_remove_domains "/etc/mosdns/rule/reject-need-to-remove.txt" "/var/mosdns/geosite_category-ads-all.txt"
     #${LOGINIT} restart >/dev/null 2>&1 &
+    _remove_domains "/etc/mosdns/rule/local-ptr.txt" "/var/mosdns/geosite_category-ads-all.txt"
+}
+
+# ── IPv6 AAAA 拦截控制 ──────────────────────────────────────
+# 控制 mosdns 配置中各查询路径的 reject_aaaa 逻辑
+# 本地路径 (forward_local_seq): 国内 DNS 查询
+# 远程路径 (其余三个): 国外 DNS / Clash DNS / 兜底
+
+# ====== AAAA IPv6 控制 (基于 main_sequence 标记块注释切换) ======
+# 每个标记块内容由 awk 统一注释/取消注释，不逐行 sed
+# 块标记: # ====== [ipv6_remote] ====== ... # ====== [/ipv6_remote] ======
+
+_ipv6_set() {
+    local mode="${1:-}"  # "" | "remote" | "local" | "dual"
+    local remote=0 local=0
+    case "$mode" in
+        remote) remote=1 ;;
+        local)  local=1 ;;
+        dual)   remote=1; local=1 ;;
+    esac
+
+    awk -v re="$remote" -v le="$local" '
+    /\[ipv6_remote\]/   { in_r=1; print; next }
+    /\[\/ipv6_remote\]/ { in_r=0; print; next }
+    /\[ipv6_local\]/    { in_l=1; print; next }
+    /\[\/ipv6_local\]/  { in_l=0; print; next }
+    {
+        if (in_r) {
+            if (re) sub(/# /, "")
+            else if ($0 !~ /^[[:space:]]*# /) $0 = "# " $0
+        }
+        if (in_l) {
+            if (le) sub(/# /, "")
+            else if ($0 !~ /^[[:space:]]*# /) $0 = "# " $0
+        }
+        print
+    }' "$CONF" > "${CONF}.tmp" && mv "${CONF}.tmp" "$CONF"
+}
+
+cmd_ipv6() {
+    [ -f "$CONF" ] || die "$CONF 不存在"
+    grep -q '\[ipv6_remote\]' "$CONF" || \
+        die "$CONF 中未找到 ipv6 标记块，请用新版 config_custom.yaml.sample 更新配置"
+
+    case "${1:-}" in
+        --local)  _ipv6_set local;  echo "IPv6: 国内 AAAA 拦截已启用，国外放行" >&2 ;;
+        --remote) _ipv6_set remote; echo "IPv6: 国外 AAAA 拦截已启用，国内放行" >&2 ;;
+        --dual)   _ipv6_set dual;   echo "IPv6: 国内+国外 AAAA 均已拦截" >&2 ;;
+        "")       _ipv6_set "";      echo "IPv6: 已放行所有 AAAA 查询" >&2 ;;
+        *)        die "mosdns-cli ipv6: 无效参数 '$1'. 用法: mosdns-cli ipv6 [--local|--remote|--dual]" ;;
+    esac
+    cmd_reload
+}
+
+# ── 广告过滤开关 ──────────────────────────────────────────────
+# 注释/取消注释 main_sequence 中 Step 3 的三行广告拦截规则
+
+_adlist_toggle() {
+    local start
+    start=$(awk '/qname \$adlist/{print NR; exit}' "$CONF")
+    [ -n "$start" ] || die "无法定位广告过滤规则 (qname \$adlist)"
+
+    if [ "$1" = "disable" ]; then
+        sed -i "${start},$((start + 2))s/^[^#]/#&/" "$CONF"
+    else
+        sed -i "${start},$((start + 2))s/^#//" "$CONF"
+    fi
+}
+
+cmd_adlist() {
+    [ -f "$CONF" ] || die "$CONF 不存在"
+    grep -q 'tag: reject_adlist' "$CONF" || die "$CONF 中未找到 reject_adlist 插件定义"
+
+    if [ "$1" = "--remove" ]; then
+        _adlist_toggle disable
+        echo "广告过滤已关闭" >&2
+    else
+        _adlist_toggle enable
+        echo "广告过滤已启用" >&2
+    fi
+    cmd_reload
+}
+
+# ── 模式切换 ──────────────────────────────────────────────────
+# 在 backend (DoH 上游) 与 frontend (Clash DNS 上游) 之间切换
+# 从配置末尾 MODE APPENDIX 的 JSON 中提取目标模式的 forward 定义
+# 生成 YAML → 替换配置正文中的对应插件块 → 调整端口和 always_standby
+
+# mode 命令操作的 forward 插件 tag 列表
+MODE_FORWARD_TAGS="forward_local forward_remote forward_google forward_cloudflare forward_stream_media"
+
+_mode_current() {
+    if grep -q 'listen: *":5335"' "${CONF}" 2>/dev/null; then
+        echo "backend"
+    elif grep -q 'listen: *":53"' "${CONF}" 2>/dev/null; then
+        echo "frontend"
+    else
+        die "无法确定当前模式（未找到 listen 端口）"
+    fi
+}
+
+# 从配置文件提取 @MODE_JSON ... @END_MODE_JSON 之间的 JSON
+# 去掉每行开头的 "# " 前缀，写入临时文件
+_mode_extract_json() {
+    local outfile="$1"
+    awk '/^# @MODE_JSON/{ in_json=1; next }
+         /^# @END_MODE_JSON/{ exit }
+         in_json { sub(/^# /, ""); print }' "${CONF}" > "$outfile"
+    [ -s "$outfile" ] || die "MODE APPENDIX 为空或格式错误"
+}
+
+# 验证 JSON 语法
+_mode_validate_json() {
+    local jsonfile="$1"
+    if command -v jsonfilter >/dev/null 2>&1; then
+        jsonfilter -i "$jsonfile" -e '@' >/dev/null 2>&1 || die "MODE APPENDIX JSON 语法错误"
+    else
+        # awk 回退：检查大括号配对
+        local opens closes
+        opens=$(tr -cd '{' < "$jsonfile" | wc -c)
+        closes=$(tr -cd '}' < "$jsonfile" | wc -c)
+        [ "$opens" -gt 0 ] || die "MODE APPENDIX JSON 为空"
+        [ "$opens" = "$closes" ] || die "MODE APPENDIX JSON 大括号不配对"
+    fi
+}
+
+# 从 JSON 生成单个 forward 插件的 YAML 块
+# $1=jsonfile, $2=mode, $3=tag → stdout 输出完整 YAML 插件块
+_mode_gen_block() {
+    local jsonfile="$1" mode="$2" tag="$3"
+
+    if command -v jsonfilter >/dev/null 2>&1; then
+        _mode_gen_block_jf "$jsonfile" "$mode" "$tag"
+    else
+        _mode_gen_block_awk "$jsonfile" "$mode" "$tag"
+    fi
+}
+
+# jsonfilter 路径
+_mode_gen_block_jf() {
+    local jsonfile="$1" mode="$2" tag="$3"
+    local concurrent
+    concurrent=$(jsonfilter -i "$jsonfile" -e "@.${mode}.${tag}.concurrent" 2>/dev/null) || true
+    [ -n "$concurrent" ] || die "MODE APPENDIX 缺少: ${mode}.${tag}.concurrent"
+
+    printf '  - tag: %s\n    type: forward\n    args:\n      concurrent: %s\n      upstreams:\n' \
+        "$tag" "$concurrent"
+
+    local i=0 addr bs pl iv to
+    while true; do
+        addr=$(jsonfilter -i "$jsonfile" -e "@.${mode}.${tag}.upstreams[$i].addr" 2>/dev/null) || break
+        [ -z "$addr" ] && break
+        printf '        - addr: "%s"\n' "$addr"
+
+        bs=$(jsonfilter -i "$jsonfile" -e "@.${mode}.${tag}.upstreams[$i].bootstrap" 2>/dev/null) || true
+        [ -n "$bs" ] && printf '          bootstrap: "%s"\n' "$bs"
+
+        pl=$(jsonfilter -i "$jsonfile" -e "@.${mode}.${tag}.upstreams[$i].enable_pipeline" 2>/dev/null) || true
+        [ -n "$pl" ] && printf '          enable_pipeline: %s\n' "$pl"
+
+        iv=$(jsonfilter -i "$jsonfile" -e "@.${mode}.${tag}.upstreams[$i].insecure_skip_verify" 2>/dev/null) || true
+        [ -n "$iv" ] && printf '          insecure_skip_verify: %s\n' "$iv"
+
+        to=$(jsonfilter -i "$jsonfile" -e "@.${mode}.${tag}.upstreams[$i].idle_timeout" 2>/dev/null) || true
+        [ -n "$to" ] && printf '          idle_timeout: %s\n' "$to"
+
+        i=$((i + 1))
+    done
+    [ "$i" -gt 0 ] || die "MODE APPENDIX: ${mode}.${tag}.upstreams 为空"
+}
+
+# awk/grep 回退路径（jsonfilter 不可用时）
+_mode_gen_block_awk() {
+    local jsonfile="$1" mode="$2" tag="$3"
+    local concurrent line pair key val
+
+    # 提取 concurrent 值
+    concurrent=$(sed -n '/"'"$mode"'":/,/"upstreams"/{ /"'"$tag"'":/,/"concurrent"/{ /"concurrent":/p; } }' "$jsonfile" \
+        | head -1 | grep -o '[0-9]\+' | head -1)
+    [ -z "$concurrent" ] && die "MODE APPENDIX 缺少: ${mode}.${tag}.concurrent"
+
+    printf '  - tag: %s\n    type: forward\n    args:\n      concurrent: %s\n      upstreams:\n' \
+        "$tag" "$concurrent"
+
+    # 提取 upstreams 数组内容（从 "[ 到 "]" 之间含 "addr" 的行）
+    # 先写入临时文件再逐行读取，避免管道子 shell 导致 count 丢失
+    local count=0 upstreams_file="${TMPDIR:-/tmp}/mosdns_upstreams_$$"
+    sed -n '/"'"$mode"'":/,/^# @END_MODE_JSON/p' "$jsonfile" \
+        | sed -n '/"'"$tag"'":/,/^ *\]/p' \
+        | sed -n '/"upstreams":/,/^ *\]/p' \
+        | grep '"addr"' > "$upstreams_file"
+
+    while IFS= read -r line; do
+        count=$((count + 1))
+        echo "$line" | grep -oE '"[^"]+": *(true|false|[0-9]+|"[^"]*")' | while IFS= read -r pair; do
+            key="${pair%%:*}"
+            key=$(echo "$key" | tr -d '"' | tr -d ' ')
+            val="${pair#*: }"
+            if [ "$key" = "addr" ]; then
+                printf '        - %s: %s\n' "$key" "$val"
+            else
+                printf '          %s: %s\n' "$key" "$val"
+            fi
+        done
+    done < "$upstreams_file"
+
+    [ "$count" -gt 0 ] || die "MODE APPENDIX: ${mode}.${tag}.upstreams 为空（awk 回退路径）"
+    rm -f "$upstreams_file"
+}
+
+# 在配置文件中定位并替换指定 tag 的插件块
+# $1=config文件, $2=tag名, $3=替换内容文件
+_mode_replace_block() {
+    local file="$1" tag="$2" repl="$3"
+    local start end
+
+    # 定位块起始: "  - tag: <tag>" (2 空格缩进，允许行尾空白)
+    start=$(grep -n "^  - tag: ${tag}[[:space:]]*\$" "$file" | head -n 1 | cut -d: -f1)
+    [ -z "$start" ] && die "无法定位插件块: ${tag}"
+
+    # 定位块结束: 下一个 "  - tag:" 行之前
+    end=$(awk -v s="$start" 'NR > s && /^  - tag: /{print NR - 1; exit}' "$file")
+    [ -z "$end" ] && end=$(wc -l < "$file")
+
+    [ -s "$repl" ] || die "替换块 ${tag} 的内容为空"
+
+    # 删除旧块
+    sed -i "${start},${end}d" "$file"
+    # 在删除位置插入新块
+    sed -i "$((start - 1))r ${repl}" "$file"
+}
+
+# 替换监听端口（listen 行和头部注释）
+# 用 awk 单次遍历保证每行只匹配一次，避免两次 sed 时 to_port 含 from_port
+# 子串导致的二次替换（如 53→5335 后再被匹配 53→5335335）
+_mode_adjust_port() {
+    local file="$1" from_port="$2" to_port="$3"
+    awk -v from="$from_port" -v to="$to_port" '
+        /listen: *":/ { sub(":" from "\"", ":" to "\"") }
+        /0\.0\.0\.0:/   {
+            gsub("0\\.0\\.0\\.0:" from, "0.0.0.0:" to)
+        }
+        { print }
+    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
+# 替换 fallback 插件块内的 always_standby 值
+# 用 awk 限域，避免误改 apple_domain_fallback
+_mode_adjust_standby() {
+    local file="$1" to="$2"
+    local old_val new_val
+    case "$to" in
+        backend)  old_val="false"; new_val="true"  ;;
+        frontend) old_val="true";  new_val="false" ;;
+    esac
+
+    awk -v old="$old_val" -v new="$new_val" '
+        /^  - tag: fallback\$/   { in_fb = 1 }
+        in_fb && $0 ~ "always_standby: " old {
+            sub("always_standby: " old, "always_standby: " new)
+            in_fb = 0
+        }
+        { print }
+    ' "$file" > "${file}.tmp" && mv "${file}.tmp" "$file"
+}
+
+cmd_mode() {
+    local target="$1"
+    case "$target" in
+        backend|frontend) ;;
+        "") die "用法: mosdns-cli mode {backend|frontend}" ;;
+        *)  die "无效模式: $target (可用: backend, frontend)" ;;
+    esac
+
+    [ -f "$CONF" ] || die "${CONF} 不存在"
+    grep -q '@MODE_JSON' "$CONF" || die "配置文件缺少 MODE APPENDIX，无法切换模式"
+
+    local current; current=$(_mode_current)
+
+    if [ "$current" = "$target" ]; then
+        echo "mosdns: 已在 ${target} 模式，无需切换" >&2
+        return 0
+    fi
+
+    echo "mosdns: 切换模式 ${current} -> ${target} ..." >&2
+
+    local tmp="${TMPDIR:-/tmp}/mosdns_mode_$$"
+    mkdir -p "$tmp" || die "无法创建临时目录"
+
+    # 1. 提取 JSON
+    local jsonfile="${tmp}/mode.json"
+    _mode_extract_json "$jsonfile"
+    _mode_validate_json "$jsonfile"
+
+    # 2. 拆分配置: body + appendix
+    local body="${tmp}/body.yaml"
+    awk '/^# @MODE_JSON/{exit} {print}' "${CONF}" > "$body"
+    [ -s "$body" ] || { rm -rf "$tmp"; die "配置文件正文提取失败"; }
+
+    # 3. 生成并替换所有 forward 块
+    local tag repl
+    for tag in $MODE_FORWARD_TAGS; do
+        repl="${tmp}/${tag}"
+        _mode_gen_block "$jsonfile" "$target" "$tag" > "$repl"
+        [ -s "$repl" ] || { rm -rf "$tmp"; die "生成 ${tag} YAML 失败"; }
+        _mode_replace_block "$body" "$tag" "$repl"
+    done
+
+    # 4. 调整 mosdns 监听端口
+    local from_port to_port
+    case "$current" in backend) from_port="5335" ;; frontend) from_port="53" ;; esac
+    case "$target"  in backend) to_port="5335"   ;; frontend) to_port="53"   ;; esac
+    _mode_adjust_port "$body" "$from_port" "$to_port"
+
+    # 5. 调整 always_standby
+    _mode_adjust_standby "$body" "$target"
+
+    # 6. 重新拼接 appendix（含 @MODE_JSON 标记行，确保下次可提取）
+    awk '/^# @MODE_JSON/{f=1} f{print}' "${CONF}" >> "$body"
+
+    # 7. 停 mosdns → 部署配置 → 启动 mosdns
+    _cache_save
+    mos_stop
+
+    cp "${CONF}" "${CONF}.bak" || { rm -rf "$tmp"; die "备份配置文件失败"; }
+    mv "$body" "${CONF}" || { mv "${CONF}.bak" "${CONF}"; rm -rf "$tmp"; die "写入配置文件失败"; }
+
+    sed -i "s/^# 当前模式: .*/# 当前模式: ${target}/" "${CONF}"
+
+    mos_start
+    wait_mos
+    _cache_load
+
+    rm -rf "$tmp"
+    echo "mosdns: 已完成 ${current} -> ${target} 切换 (备份: ${CONF}.bak)" >&2
 }
 
 # ── 入口 ────────────────────────────────────────────────────
 
 case "$1" in
     reload) cmd_reload ;;
+    cf)     shift; cmd_cf "$@" ;;
     clear)  cmd_clear "$2" ;;
+    dns)    cmd_dns "$2" ;;
     flush)  cmd_flush ;;
     start)  cmd_start ;;
     stop)   cmd_stop ;;
     hook)   cmd_hook "$2" ;;
     init)   cmd_init ;;
-    *)      echo "用法: mosdns-cli {reload|cf|clear [M]|flush|start|stop|hook [--remove]|init}" >&2
-            echo "  reload  热重载（保留缓存）  cf    更新 CF CIDR" >&2
+    ipv6)   cmd_ipv6 "$2" ;;
+    adlist) cmd_adlist "$2" ;;
+    mode)   cmd_mode "$2" ;;
+    *)      echo "用法: mosdns-cli {reload|cf [IP...]|clear [M]|flush|start|stop|dns [--remove]|hook [--remove]|ipv6 [--local|--remote|--dual]|adlist [--remove]|mode {backend|frontend}}" >&2
+            echo "  reload  热重载（保留缓存）  cf [IP] 更新 CF CIDR（无参关闭优选）" >&2
             echo "  clear   清空日志（可带 M）  flush 清空缓存" >&2
             echo "  start   启动 mosdns + 日志   stop  停止 mosdns + 日志" >&2
-            echo "  hook    注入/移除清理钩子   init  清理错分域名" >&2
+            echo "  dns [--remove]  启用/禁用透明劫持   hook [--remove]  注入/移除清理钩子" >&2
+            echo "  ipv6 [--local|--remote|--dual]  管理 AAAA 拦截（无子参=全部放行）" >&2
+            echo "  adlist [--remove]  启用/关闭广告过滤" >&2
+            echo "  mode {backend|frontend}  切换运行模式（DoH/Clash DNS）" >&2
             exit 1 ;;esac

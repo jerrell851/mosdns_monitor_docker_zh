@@ -1,2170 +1,4288 @@
 {
-  "annotations": {
-    "list": [
+  "apiVersion": "dashboard.grafana.app/v2beta1",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "mosdns"
+  },
+  "spec": {
+    "annotations": [
       {
-        "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "target": {
-          "limit": 100,
-          "matchAny": false,
-          "tags": [],
-          "type": "dashboard"
-        },
-        "type": "dashboard"
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "uid": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "version": "v0"
+          }
+        }
       }
-    ]
-  },
-  "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": null,
-  "links": [
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": false,
-      "tags": [],
-      "targetBlank": true,
-      "title": "Jerrell851/GitHub",
-      "type": "link",
-      "url": "https://github.com/jerrell851/mosdns_monitor_docker_zh"
-    }
-  ],
-  "liveNow": false,
-  "panels": [
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
-      "id": 21,
-      "panels": [],
-      "title": "📊 数据概览",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 7,
-        "w": 2,
-        "h": 3
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "delta(mosdns_metrics_collector_query_total{job=\"mosdns\"}[$__range])",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "🏷️ 查询总数",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "orange",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 2,
-        "y": 7,
-        "w": 2,
-        "h": 3
-      },
-      "id": 8,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "increase(mosdns_metrics_collector_err_total{job=\"mosdns\"}[$__range])/increase(mosdns_metrics_collector_query_total{job=\"mosdns\"}[$__range])",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "❌ 错误率",
-      "type": "gauge"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "center",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time (count)"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "id": 15,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "📋 处理器统计",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": false,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "Time",
-                "client",
-                "elapsed",
-                "level",
-                "message_zh",
-                "processor",
-                "qname",
-                "is_dns"
-              ]
+    ],
+    "cursorSync": "Off",
+    "editable": true,
+    "elements": {
+      "panel-10": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum(increase(mosdns_metrics_collector_response_latency_millisecond_sum{job=\"mosdns\"}[$__range])) / sum(increase(mosdns_metrics_collector_response_latency_millisecond_count{job=\"mosdns\"}[$__range]))",
+                        "legendFormat": "平均延迟",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
             }
+          },
+          "description": "区间内 DNS 查询的算术平均响应延迟 (ms)。<10ms 绿 / 10-100ms 黄 / 100-500ms 橙 / >500ms 红",
+          "id": 10,
+          "links": [],
+          "title": "⏱️ 平均延迟",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "decimals": 1,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "yellow",
+                        "value": 10
+                      },
+                      {
+                        "color": "orange",
+                        "value": 100
+                      },
+                      {
+                        "color": "red",
+                        "value": 500
+                      }
+                    ]
+                  },
+                  "unit": "ms"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "value",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
           }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "equal",
-                  "options": {
-                    "value": "yes"
+        }
+      },
+      "panel-12": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=~\"mosdns.*\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": false,
+                      "source": "Line"
+                    }
                   }
                 },
-                "fieldName": "is_dns"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "Time": 0,
-              "client": 5,
-              "elapsed": 4,
-              "level": 1,
-              "message_zh": 3,
-              "processor": 2,
-              "qname": 4
-            },
-            "renameByName": {
-              "client": "客户端",
-              "elapsed": "耗时",
-              "level": "级别",
-              "message_zh": "消息",
-              "processor": "处理器",
-              "qname": "域名"
-            }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "Time": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
-              },
-              "message_zh": {
-                "aggregations": [],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "Time (count)"
-              }
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "scaleDistribution": {
-              "type": "linear"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 1
-      },
-      "id": 6,
-      "interval": "30s",
-      "maxDataPoints": 50,
-      "options": {
-        "calculate": false,
-        "cellGap": 1,
-        "color": {
-          "exponent": 0.5,
-          "fill": "dark-orange",
-          "mode": "scheme",
-          "reverse": false,
-          "scale": "exponential",
-          "scheme": "RdYlGn",
-          "steps": 64
-        },
-        "exemplars": {
-          "color": "rgba(255,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1e-09
-        },
-        "legend": {
-          "show": true
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "showColorScale": false,
-          "yHistogram": false
-        },
-        "yAxis": {
-          "axisPlacement": "left",
-          "decimals": 1,
-          "reverse": false,
-          "unit": "ms"
-        }
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "ceil(increase(mosdns_metrics_collector_response_latency_millisecond_bucket{le!=\"+Inf\"}[$__interval]))",
-          "format": "heatmap",
-          "hide": false,
-          "legendFormat": "{{le}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "📊 延迟分布",
-      "type": "heatmap"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "orange",
-                "value": 10
-              },
-              {
-                "color": "orange",
-                "value": 100
-              },
-              {
-                "color": "red",
-                "value": 500
-              }
-            ]
-          },
-          "unit": "ms",
-          "decimals": 1
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 1,
-        "w": 2,
-        "h": 3
-      },
-      "id": 10,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "delta(mosdns_metrics_collector_response_latency_millisecond_sum{job=\"mosdns\"}[$__range])/delta(mosdns_metrics_collector_response_latency_millisecond_count{job=\"mosdns\"}[$__range])",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "⏱️ 平均延迟",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 7,
-        "w": 2,
-        "h": 3
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "increase(mosdns_metrics_collector_err_total{job=\"mosdns\"}[$__range])",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "⚠️ 错误计数",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "message (count)"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 200
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "dark-yellow",
-                  "mode": "fixed"
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge",
-                  "valueDisplayMode": "text"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "qname"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "域名"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 0,
-        "y": 10
-      },
-      "id": 18,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "🚫 广告及黑名单",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": true,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "equal",
-                  "options": {
-                    "value": "reject_blocklist"
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "Time",
+                          "client",
+                          "elapsed",
+                          "level",
+                          "message_zh",
+                          "processor",
+                          "qname"
+                        ]
+                      }
+                    }
                   }
                 },
-                "fieldName": "message"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "message",
-                "qname"
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {},
+                      "indexByName": {
+                        "Time": 0,
+                        "client": 5,
+                        "elapsed": 4,
+                        "level": 1,
+                        "message_zh": 3,
+                        "processor": 2,
+                        "qname": 4
+                      },
+                      "renameByName": {
+                        "Time": "时间",
+                        "client": "客户端",
+                        "elapsed": "耗时",
+                        "level": "级别",
+                        "message_zh": "消息",
+                        "processor": "处理器",
+                        "qname": "域名"
+                      }
+                    }
+                  }
+                }
               ]
             }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "message": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
-              },
-              "qname": {
-                "aggregations": [
-                  "max"
-                ],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "message (count)"
-              }
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
           },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "filterable": false,
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "message (count)"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 200
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "light-blue",
-                  "mode": "fixed"
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge",
-                  "valueDisplayMode": "text"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "qname"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "域名"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 4,
-        "y": 10
-      },
-      "id": 23,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "enablePagination": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "🏠 本地域名查询（支持IPV4/IPV6双栈）",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": true,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "regex",
-                  "options": {
-                    "value": "forward_local"
+          "description": "mosdns 全量工作日志流。包含所有 DNS 查询 (message_zh/域名/客户端/耗时) 及系统事件，按时间倒序显示",
+          "id": 12,
+          "links": [],
+          "title": "📜 实时日志",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
                   }
                 },
-                "fieldName": "message"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "message",
-                "qname"
-              ]
-            }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "message": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
+                "overrides": []
               },
-              "qname": {
-                "aggregations": [
-                  "max"
-                ],
-                "operation": "groupby"
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true
               }
-            }
+            },
+            "version": "13.0.1"
           }
         }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
       },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "message (count)"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 200
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "semi-dark-green",
-                  "mode": "fixed"
+      "panel-15": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "direction": "backward",
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
                 }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge",
-                  "valueDisplayMode": "text"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "qname"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "域名"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 8,
-        "y": 10
-      },
-      "id": 19,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "🌐 远程主查询-Google（IPV4优先）",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": true,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "equal",
-                  "options": {
-                    "value": "forward_remote"
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": false,
+                      "source": "Line"
+                    }
                   }
                 },
-                "fieldName": "message"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "message",
-                "qname"
-              ]
-            }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "message": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
-              },
-              "qname": {
-                "aggregations": [
-                  "max"
-                ],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "message (count)"
-              }
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "message (count)"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 200
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "palette-classic-by-name"
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge",
-                  "valueDisplayMode": "text"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "qname"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "域名"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 12,
-        "y": 10
-      },
-      "id": 20,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "🔄 远程副查询-Cloudflare（IPV4优先）",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": true,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "equal",
-                  "options": {
-                    "value": "fallback_remote"
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "Time",
+                          "client",
+                          "elapsed",
+                          "level",
+                          "message_zh",
+                          "processor",
+                          "qname",
+                          "is_dns"
+                        ]
+                      }
+                    }
                   }
                 },
-                "fieldName": "message"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "message",
-                "qname"
-              ]
-            }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "message": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
-              },
-              "qname": {
-                "aggregations": [
-                  "max"
-                ],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "message (count)"
-              }
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "message (count)"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 200
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "palette-classic-by-name"
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge",
-                  "valueDisplayMode": "text"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "qname"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "域名"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 16,
-        "y": 10
-      },
-      "id": 25,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "🎬 流媒体查询",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": true,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "equal",
-                  "options": {
-                    "value": "forward_stream_media"
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "yes"
+                            }
+                          },
+                          "fieldName": "is_dns"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
                   }
                 },
-                "fieldName": "message"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "message",
-                "qname"
-              ]
-            }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "message": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
-              },
-              "qname": {
-                "aggregations": [
-                  "max"
-                ],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "message (count)"
-              }
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "message (count)"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 200
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "palette-classic-by-name"
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "gauge",
-                  "valueDisplayMode": "text"
-                }
-              },
-              {
-                "id": "displayName",
-                "value": "计数"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "qname"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "域名"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 4,
-        "x": 20,
-        "y": 10
-      },
-      "id": 24,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=\"mosdns\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
-        }
-      ],
-      "title": "⚡ 错误查询",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": true,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterByValue",
-          "options": {
-            "filters": [
-              {
-                "config": {
-                  "id": "equal",
-                  "options": {
-                    "value": "upstream error"
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {},
+                      "indexByName": {
+                        "Time": 0,
+                        "client": 5,
+                        "elapsed": 4,
+                        "level": 1,
+                        "message_zh": 3,
+                        "processor": 2,
+                        "qname": 4
+                      },
+                      "renameByName": {
+                        "client": "客户端",
+                        "elapsed": "耗时",
+                        "level": "级别",
+                        "message_zh": "消息",
+                        "processor": "处理器",
+                        "qname": "域名"
+                      }
+                    }
                   }
                 },
-                "fieldName": "message"
-              }
-            ],
-            "match": "all",
-            "type": "include"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "message",
-                "qname"
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "Time": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "message_zh": {
+                          "aggregations": [],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "Time (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
               ]
             }
-          }
-        },
-        {
-          "id": "groupBy",
-          "options": {
-            "fields": {
-              "message": {
-                "aggregations": [
-                  "count"
-                ],
-                "operation": "aggregate"
-              },
-              "qname": {
-                "aggregations": [
-                  "max"
-                ],
-                "operation": "groupby"
-              }
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [
-              {
-                "desc": true,
-                "field": "message (count)"
-              }
-            ]
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 18
-      },
-      "id": 22,
-      "panels": [],
-      "title": "📝 详细日志",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "loki",
-        "uid": "P8E80F9AEF21F6940"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
           },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
+          "description": "配置文件 main_sequence 中各处理器/插件的命中次数分布，按 message_zh 聚合，反映 DNS 分流各路径的流量占比",
+          "id": 15,
+          "links": [],
+          "title": "📋 处理器统计",
+          "transparent": true,
+          "vizConfig": {
+            "group": "barchart",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "fillOpacity": 90,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "lineWidth": 1,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "light-green",
+                        "value": 0
+                      },
+                      {
+                        "color": "green",
+                        "value": 200
+                      },
+                      {
+                        "color": "semi-dark-green",
+                        "value": 300
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Time (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "__systemRef": "hideSeriesFrom",
+                    "matcher": {
+                      "id": "byNames",
+                      "options": {
+                        "mode": "exclude",
+                        "names": [
+                          "计数"
+                        ],
+                        "prefix": "All except:",
+                        "readOnly": true
+                      }
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.hideFrom",
+                        "value": {
+                          "legend": false,
+                          "tooltip": true,
+                          "viz": true
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "barRadius": 0.05,
+                "barWidth": 0.9,
+                "fullHighlight": false,
+                "groupWidth": 0.7,
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "right",
+                  "showLegend": false,
+                  "sortBy": "Name",
+                  "sortDesc": false
+                },
+                "orientation": "horizontal",
+                "showValue": "auto",
+                "stacking": "none",
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                },
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 0
+              }
             },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
+            "version": "13.0.1"
           }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 11,
-        "w": 24,
-        "x": 0,
-        "y": 19
-      },
-      "id": 12,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "P8E80F9AEF21F6940"
-          },
-          "editorMode": "builder",
-          "expr": "{app=~\"mosdns.*\"}",
-          "queryType": "range",
-          "refId": "A",
-          "maxLines": 200
         }
-      ],
-      "title": "📜 实时日志",
-      "transformations": [
-        {
-          "id": "extractFields",
-          "options": {
-            "format": "json",
-            "keepTime": false,
-            "replace": false,
-            "source": "Line"
-          }
-        },
-        {
-          "id": "filterFieldsByName",
-          "options": {
-            "include": {
-              "names": [
-                "Time",
-                "client",
-                "elapsed",
-                "level",
-                "message_zh",
-                "processor",
-                "qname"
+      },
+      "panel-18": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "reject_blocklist"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
               ]
             }
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {},
-            "indexByName": {
-              "Time": 0,
-              "client": 5,
-              "elapsed": 4,
-              "level": 1,
-              "message_zh": 3,
-              "processor": 2,
-              "qname": 4
+          },
+          "description": "被黑名单及广告过滤规则拦截的域名。拦截后直接返回 NXDOMAIN，不向上游 DNS 发出查询",
+          "id": 18,
+          "links": [],
+          "title": "🚫 广告及黑名单",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "dark-yellow",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
             },
-            "renameByName": {
-              "Time": "时间",
-              "client": "客户端",
-              "elapsed": "耗时",
-              "level": "级别",
-              "message_zh": "消息",
-              "processor": "处理器",
-              "qname": "域名"
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-19": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "forward_remote"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "使用无污染DNS查询的域名",
+          "id": 19,
+          "links": [],
+          "title": "🌐 远程域名主查询",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "semi-dark-green",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-2": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum(increase(mosdns_metrics_collector_query_total{job=\"mosdns\"}[$__range]))",
+                        "legendFormat": "查询总数",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "区间内 mosdns 处理的 DNS 查询总量。0 次红（无流量告警）/ <100 次橙（低流量）/ >1000 次绿（正常）",
+          "id": 2,
+          "links": [],
+          "title": "🏷️ 查询总数",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "decimals": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": 0
+                      },
+                      {
+                        "color": "orange",
+                        "value": 100
+                      },
+                      {
+                        "color": "green",
+                        "value": 1000
+                      }
+                    ]
+                  },
+                  "unit": "none"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "value",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-20": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "apple_fallback"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "被114 DNS加速的域名",
+          "id": 20,
+          "links": [],
+          "title": "🍎 Apple 加速域名",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "palette-classic-by-name"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-23": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "forward_local"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "使用国内 DNS 直查的域名",
+          "id": 23,
+          "links": [],
+          "title": "🏠 本地域名查询",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "light-blue",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "enablePagination": false,
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-24": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "cloudflare_accel"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "使用Cloudflare优选IP加速的域名",
+          "id": 24,
+          "links": [],
+          "title": "☁️ CF 优选加速",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "palette-classic-by-name"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-25": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "forward_stream_media"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "使用专用流媒体DNS查询的域名",
+          "id": 25,
+          "links": [],
+          "title": "🎬 流媒体查询",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "palette-classic-by-name"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-30": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum(increase(mosdns_cache_hit_total{tag=\"lazy_cache\"}[$__range])) / sum(increase(mosdns_cache_query_total{tag=\"lazy_cache\"}[$__range]))",
+                        "legendFormat": "命中率",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "缓存命中比例 <30% 红 / 30-60% 橙 / >60% 绿。",
+          "id": 30,
+          "links": [],
+          "title": "💾 缓存命中率",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "decimals": 1,
+                  "max": 1,
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "red",
+                        "value": 0
+                      },
+                      {
+                        "color": "orange",
+                        "value": 0.3
+                      },
+                      {
+                        "color": "green",
+                        "value": 0.6
+                      }
+                    ]
+                  },
+                  "unit": "percentunit"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "value",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-31": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "mosdns_cache_size_current{tag=\"lazy_cache\"}",
+                        "legendFormat": "mosdns已缓存域名条数",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "缓存条目数量。过多可能导致内存压力过大，过少可能表明缓存效果不佳。<1000 绿 / 1000-5000 黄 / >5000 红。",
+          "id": 31,
+          "links": [],
+          "title": "📦 缓存条目",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "decimals": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "#EAB839",
+                        "value": 1000
+                      },
+                      {
+                        "color": "dark-red",
+                        "value": 5000
+                      }
+                    ]
+                  },
+                  "unit": "none"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-32": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum(increase(mosdns_cache_lazy_hit_total{tag=\"lazy_cache\"}[$__range]))",
+                        "legendFormat": "过期命中",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "区间内因 TTL 过期但仍复用旧缓存值的查询次数",
+          "id": 32,
+          "links": [],
+          "title": "⏳ 过期命中",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "decimals": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      }
+                    ]
+                  },
+                  "unit": "none"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "value",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-34": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "process_resident_memory_bytes{job=\"mosdns\"}",
+                        "legendFormat": "当前系统内存开销",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "mosdns 进程的内存使用量。<100MB 绿 / 100-200MB 橙 / >200MB 红",
+          "id": 34,
+          "links": [],
+          "title": "🧠 内存占用",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "decimals": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "orange",
+                        "value": 104857600
+                      },
+                      {
+                        "color": "red",
+                        "value": 209715200
+                      }
+                    ]
+                  },
+                  "unit": "decbytes"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-35": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum(increase(process_cpu_seconds_total{job=\"mosdns\"}[$__range]))",
+                        "legendFormat": "CPU 耗时",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "mosdns 进程在时间范围内消耗的 CPU 秒数。<10s 绿 / 10-30s 橙 / >30s 红",
+          "id": 35,
+          "links": [],
+          "title": "🔄 CPU 耗时",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "decimals": 2,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "orange",
+                        "value": 10
+                      },
+                      {
+                        "color": "red",
+                        "value": 30
+                      }
+                    ]
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "background",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "value",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "increase(mosdns_metrics_collector_err_total{job=\"mosdns\"}[$__range])",
+                        "legendFormat": "查询错误发生的次数",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "区间内 mosdns 查询错误的次数。<80 绿 / 80-200 粉 / >200 红",
+          "id": 4,
+          "links": [],
+          "title": "⚠️ 错误计数",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "decimals": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "light-red",
+                        "value": 80
+                      },
+                      {
+                        "color": "dark-red",
+                        "value": 200
+                      }
+                    ]
+                  },
+                  "unit": "none"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-6": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (le) (rate(mosdns_metrics_collector_response_latency_millisecond_bucket{job=\"mosdns\"}[$__rate_interval]))",
+                        "format": "heatmap",
+                        "legendFormat": "≤{{le}} ms",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {
+                "interval": "30s",
+                "maxDataPoints": 200
+              },
+              "transformations": []
+            }
+          },
+          "description": "DNS 响应延迟热力图。Y 轴为延迟分桶 (ms) 对数刻度，颜色越暖表示该延迟区间的查询密度越高。深蓝 = 低密度/低延迟，深红 = 高密度热区。悬停可查看分布柱状图。",
+          "id": 6,
+          "links": [],
+          "title": "📊 延迟分布",
+          "transparent": true,
+          "vizConfig": {
+            "group": "heatmap",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "scaleDistribution": {
+                      "log": 2,
+                      "type": "log"
+                    }
+                  },
+                  "unit": "ms"
+                },
+                "overrides": []
+              },
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "calculate": false,
+                "cellGap": 1,
+                "cellValues": {
+                  "unit": "none"
+                },
+                "color": {
+                  "exponent": 0.5,
+                  "fill": "dark-orange",
+                  "mode": "scheme",
+                  "reverse": false,
+                  "scale": "exponential",
+                  "scheme": "Turbo",
+                  "steps": 128
+                },
+                "exemplars": {
+                  "color": "rgba(255,0,255,0.7)"
+                },
+                "filterValues": {
+                  "le": 1e-09
+                },
+                "legend": {
+                  "show": true
+                },
+                "rowsFrame": {
+                  "layout": "auto"
+                },
+                "tooltip": {
+                  "maxHeight": 600,
+                  "mode": "multi",
+                  "showColorScale": true,
+                  "yHistogram": true
+                },
+                "yAxis": {
+                  "axisLabel": "延迟 (ms)",
+                  "axisPlacement": "left",
+                  "decimals": 1,
+                  "reverse": false,
+                  "unit": "ms"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-8": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "ffkn40vmjsdtsf"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "increase(mosdns_metrics_collector_err_total{job=\"mosdns\"}[$__range])/increase(mosdns_metrics_collector_query_total{job=\"mosdns\"}[$__range])",
+                        "legendFormat": "查询发生错误占查询次数的比例",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "错误率过高可能表明上游 DNS 不稳定或解析请求过于复杂导致超时。<5% 绿 / 5-10% 橙 / 10-50% 红 / >50% 深红",
+          "id": 8,
+          "links": [],
+          "title": "❌ 错误率",
+          "transparent": true,
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "decimals": 0,
+                  "max": 1,
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "percentage",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "orange",
+                        "value": 5
+                      },
+                      {
+                        "color": "red",
+                        "value": 10
+                      },
+                      {
+                        "color": "dark-red",
+                        "value": 50
+                      }
+                    ]
+                  },
+                  "unit": "percent"
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-21": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "fallback_remote"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "远程主查失败后，进入兜底查询的域名",
+          "id": 21,
+          "links": [],
+          "title": "🔄 远程域名副查询",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green"
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "palette-classic-by-name"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-22": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "upstream error"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "上游 DNS 返回错误或超时的查询记录",
+          "id": 22,
+          "links": [],
+          "title": "⚡ 错误查询",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green"
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "palette-classic-by-name"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-26": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "cache"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "DNS 查询命中本地缓存，直接返回缓存结果的域名",
+          "id": 26,
+          "links": [],
+          "title": "💾 缓存命中",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "light-green",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-27": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "regex",
+                            "options": {
+                              "value": "reject_(aaaa|https)"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "被 AAAA (qtype 28) 及 HTTPS (qtype 65) 拦截规则拒绝的域名",
+          "id": 27,
+          "links": [],
+          "title": "🛡️ AAAA与HTTPS拒绝",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "light-red",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-28": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "hosts"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "本地静态解析的域名，内存查表不请求网络",
+          "id": 28,
+          "links": [],
+          "title": "📝 Hosts 本地解析",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "light-blue",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-29": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "uid": "P8E80F9AEF21F6940"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "builder",
+                        "expr": "{app=\"mosdns\"}",
+                        "maxLines": 3000,
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "extractFields",
+                  "spec": {
+                    "options": {
+                      "format": "json",
+                      "keepTime": false,
+                      "replace": true,
+                      "source": "Line"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterByValue",
+                  "spec": {
+                    "options": {
+                      "filters": [
+                        {
+                          "config": {
+                            "id": "equal",
+                            "options": {
+                              "value": "redirect"
+                            }
+                          },
+                          "fieldName": "message"
+                        }
+                      ],
+                      "match": "all",
+                      "type": "include"
+                    }
+                  }
+                },
+                {
+                  "kind": "filterFieldsByName",
+                  "spec": {
+                    "options": {
+                      "include": {
+                        "names": [
+                          "message",
+                          "qname"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "groupBy",
+                  "spec": {
+                    "options": {
+                      "fields": {
+                        "message": {
+                          "aggregations": [
+                            "count"
+                          ],
+                          "operation": "aggregate"
+                        },
+                        "qname": {
+                          "aggregations": [
+                            "max"
+                          ],
+                          "operation": "groupby"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "kind": "sortBy",
+                  "spec": {
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": true,
+                          "field": "message (count)"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "重定向到特定 IP 的域名",
+          "id": 29,
+          "links": [],
+          "title": "↩️ Redirect 重定向",
+          "transparent": true,
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": false,
+                    "footer": {
+                      "reducers": [
+                        "sum"
+                      ]
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "message (count)"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "fixedColor": "light-purple",
+                          "mode": "fixed"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "gauge",
+                          "valueDisplayMode": "text"
+                        }
+                      },
+                      {
+                        "id": "displayName",
+                        "value": "计数"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "qname"
+                    },
+                    "properties": [
+                      {
+                        "id": "displayName",
+                        "value": "域名"
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "footer": {
+                  "reducers": [
+                    "sum"
+                  ]
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "RowsLayout",
+      "spec": {
+        "rows": [
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": false,
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-35"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 0,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-34"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 2,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-10"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 4,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-15"
+                        },
+                        "height": 9,
+                        "width": 6,
+                        "x": 6,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-6"
+                        },
+                        "height": 9,
+                        "width": 12,
+                        "x": 12,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-31"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 0,
+                        "y": 3
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-30"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 2,
+                        "y": 3
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-4"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 4,
+                        "y": 3
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-2"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 0,
+                        "y": 6
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-32"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 2,
+                        "y": 6
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-8"
+                        },
+                        "height": 3,
+                        "width": 2,
+                        "x": 4,
+                        "y": 6
+                      }
+                    }
+                  ]
+                }
+              },
+              "title": "📊 数据概览"
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": false,
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-23"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 0,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-19"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 4,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-21"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 8,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-20"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 12,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-24"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 16,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-25"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 20,
+                        "y": 0
+                      }
+                    }
+                  ]
+                }
+              },
+              "title": "📋 数据区"
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": true,
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-26"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 0,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-18"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 4,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-27"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 8,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-28"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 12,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-29"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 16,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-22"
+                        },
+                        "height": 10,
+                        "width": 4,
+                        "x": 20,
+                        "y": 0
+                      }
+                    }
+                  ]
+                }
+              },
+              "title": "📋 信息区"
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": false,
+              "layout": {
+                "kind": "AutoGridLayout",
+                "spec": {
+                  "maxColumnCount": 1,
+                  "columnWidthMode": "standard",
+                  "rowHeightMode": "standard",
+                  "fillScreen": true,
+                  "items": [
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-12"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "title": "📝 详细日志"
             }
           }
-        }
-      ],
-      "type": "table"
+        ]
+      }
     },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 9
-      },
-      "id": 26,
-      "panels": [],
-      "title": "📋 查询分类",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "orange",
-                "value": 30
-              },
-              {
-                "color": "red",
-                "value": 60
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 2,
-        "y": 4,
-        "w": 2,
-        "h": 3
-      },
-      "id": 30,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(mosdns_cache_hit_total{tag=\"lazy_cache\"}[$__range])) + sum(rate(mosdns_cache_lazy_hit_total{tag=\"lazy_cache\"}[$__range]))) / sum(rate(mosdns_cache_query_total{tag=\"lazy_cache\"}[$__range]))",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
+    "links": [
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "includeVars": false,
+        "keepTime": false,
+        "tags": [],
+        "targetBlank": true,
+        "title": "Star on GitHub",
+        "tooltip": "",
+        "type": "link",
+        "url": "https://github.com/jerrell851/mosdns_monitor_docker_zh"
+      }
+    ],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "dns"
+    ],
+    "timeSettings": {
+      "autoRefresh": "10s",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
       ],
-      "title": "💾 缓存命中率",
-      "type": "gauge"
+      "fiscalYearStartMonth": 0,
+      "from": "now-5m",
+      "hideTimepicker": false,
+      "timezone": "browser",
+      "to": "now"
     },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 2,
-        "h": 3
-      },
-      "id": 31,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "mosdns_cache_size_current{tag=\"lazy_cache\"}",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "📦 缓存条目",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 4,
-        "w": 2,
-        "h": 3
-      },
-      "id": 32,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "delta(mosdns_cache_lazy_hit_total{tag=\"lazy_cache\"}[$__range])",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "⏳ 过期命中",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes",
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 2,
-        "y": 1,
-        "w": 2,
-        "h": 3
-      },
-      "id": 34,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "process_resident_memory_bytes{job=\"mosdns\"}",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "🧠 内存占用",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "ffkn40vmjsdtsf"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "s",
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 2,
-        "h": 3
-      },
-      "id": 35,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "wideLayout": true
-      },
-      "pluginVersion": "11.1.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "ffkn40vmjsdtsf"
-          },
-          "editorMode": "code",
-          "expr": "delta(process_cpu_seconds_total{job=\"mosdns\"}[$__range])",
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "🔄 CPU 耗时",
-      "type": "stat"
-    }
-  ],
-  "refresh": "10s",
-  "schemaVersion": 42,
-  "tags": [
-    "dns"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-5m",
-    "to": "now"
-  },
-  "timepicker": {},
-  "timezone": "",
-  "title": "mosdns DNS 监控",
-  "uid": "mosdns",
-  "version": 0,
-  "weekStart": ""
+    "title": "mosdns — DNS监控面板",
+    "variables": []
+  }
 }
