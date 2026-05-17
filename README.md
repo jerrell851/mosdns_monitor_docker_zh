@@ -57,7 +57,19 @@ dns:
 
 ---
 
+## 实现DNS零泄露的另一个重要设置，务必关闭浏览器的"安全 DNS"
 
+Chrome / Edge / Firefox 自带 DNS-over-HTTPS 功能，会绕过 mosdns 直接向 8.8.8.8 / Cloudflare 发加密查询，造成 DNS 泄露。
+
+| 浏览器 | 操作路径 |
+| ------ | -------- |
+| **Chrome** | 设置 → 隐私和安全 → 安全 → 关闭"使用安全 DNS" |
+| **Edge** | 设置 → 隐私、搜索和服务 → 安全 → 关闭"使用安全的 DNS 指定如何查找网站的网络地址" |
+| **Firefox** | 设置 → 隐私与安全 → 取消"通过 HTTPS 启用 DNS" |
+
+> Edge 如显示"托管浏览器禁用该设置"：地址栏输入 `edge://policy`，搜索 `DnsOverHttps`。若存在 `DnsOverHttpsMode: "secure"`，说明企业策略强制开启了 DoH，需在组策略或注册表中关闭。
+
+---
 
 ### 推荐的 DNS 泄露测试站
 
@@ -94,20 +106,6 @@ echo '0 */6 * * * mosdns-cli clear 2' >> /etc/crontabs/root
 | **Grafana** | `grafana_data` 命名卷 | 面板配置，几 MB |
 
 Loki 是唯一持续写入的服务。家庭网络（几百客户端）日均约 5-25 MB 原始日志，经 snappy 压缩后约 2-8 MB。72 小时保留 ≈ **30 MB 以内**，`docker compose down && up` 后数据不丢失。
-
----
-
-## 开始前：实现DNS零泄露的另一个重要设置，务必关闭浏览器的"安全 DNS"
-
-Chrome / Edge / Firefox 自带 DNS-over-HTTPS 功能，会绕过 mosdns 直接向 8.8.8.8 / Cloudflare 发加密查询，造成 DNS 泄露。
-
-| 浏览器 | 操作路径 |
-| ------ | -------- |
-| **Chrome** | 设置 → 隐私和安全 → 安全 → 关闭"使用安全 DNS" |
-| **Edge** | 设置 → 隐私、搜索和服务 → 安全 → 关闭"使用安全的 DNS 指定如何查找网站的网络地址" |
-| **Firefox** | 设置 → 隐私与安全 → 取消"通过 HTTPS 启用 DNS" |
-
-> Edge 如显示"托管浏览器禁用该设置"：地址栏输入 `edge://policy`，搜索 `DnsOverHttps`。若存在 `DnsOverHttpsMode: "secure"`，说明企业策略强制开启了 DoH，需在组策略或注册表中关闭。
 
 ---
 
@@ -295,7 +293,6 @@ ib.snssdk.com
 
 `mosdns-cli hook` 自动注入钩子到 luci 的 `启动` 流程，移除勾子可执行 `mosdns-cli hook --remove`。
 
-
 </details>
 
 <details>
@@ -349,7 +346,7 @@ mosdns-cli mode frontend  # 切换到前端模式（:53 + Clash DNS 上游）
 
 #### 部署前有两项配置需要手动完成
 
-**① 本地 DNS 地址**——将配置文件拉到底部，找到 MODE APPENDIX 模块（JSON 格式）。`frontend` 和 `backend` 两种模式的国内 DNS 及可信 DNS 均在此处修改即可，**不要在配置文件上方直接改**，以免 YAML 缩进错误或破坏 `mode` 自动切换功能。搜索 `@MODE_JSON`，按注释提示修改下方的 JSON 内容：
+**① 本地 DNS 地址**——将配置文件拉到底部，找到 MODE APPENDIX 模块（JSON 格式）。`frontend` 和 `backend` 两种模式的国内 DNS 及可信 DNS 均在此处修改即可，**不要在配置文件上方直接改**，以免 YAML 缩进错误或破坏 `mode` 自动切换功能。搜索 `@MODE APPENDIX`，按注释提示修改下方的 JSON 内容：
 
 ```text
 # ============================================================================
@@ -374,7 +371,6 @@ mosdns-cli mode frontend  # 切换到前端模式（:53 + Clash DNS 上游）
 #   - 编辑后执行 mosdns-cli mode <当前模式> 应用更改
 # ============================================================================
 ```
-
 
 **② Cloudflare 优选 IP**
 
@@ -421,6 +417,7 @@ vi /etc/init.d/mosdns-log   # 改 DOCKER_HOST="你的IP"
 mosdns start -c /etc/mosdns/config_custom.yaml -d /etc/mosdns
 
 # 确认无报错后，推荐改用 luci-app-mosdns "自定义配置"功能启动（勾选"启用"即可）
+```
 
 </details>
 
@@ -431,11 +428,12 @@ mosdns start -c /etc/mosdns/config_custom.yaml -d /etc/mosdns
 
 ```bash
 cd dashboard
-# 如果 mosdns 不在 192.168.11.1:8338，先修改 docker-compose.yaml 中 PROMETHEUS_TARGET 地址
+# 如果 mosdns 不在 192.168.11.1:8338，需先修改 docker-compose.yaml 中 PROMETHEUS_TARGET 地址
 docker compose up -d
+docker compose up -d
+docker compose ps   # 确认所有服务状态为 healthy/running，确保部署成功
 docker compose ps
 ```
-
 </details>
 
 <details>
