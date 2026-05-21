@@ -1,6 +1,6 @@
 ![运行效果](./snapshot.png)
 
-# mosdns — DNS 分流 + Grafana 监控方案
+# mosdns — DNS 分流 + DNS 防漏 + Grafana 监控大屏方案
 
 > **二创代码设计**：Jerrell &nbsp;|&nbsp; **代码助手**：DeepSeek &nbsp;|&nbsp; **许可**：[GPL v3.0](LICENSE)
 
@@ -8,7 +8,7 @@
 
 ---
 
-## 重要：Clash 中 Redir-Host 及 Fake-IP 模式下零泄露的 DNS 怎么炼成？
+## Clash 中 Redir-Host 及 Fake-IP 模式下零泄露的 DNS 怎么炼成？
 
 两种模式的工作流：
 
@@ -21,22 +21,79 @@
 
 ### Redir-Host 下的 Clash 规则顺序
 
-mosdns 前端模式下，国内域名在 mosdns 层已走 `forward_local` 拿到国内 IP，交到 Clash 的只有国外域名的国外 IP。因此 **GEOIP,CN 可以安全地排在 Proxy RULE-SET 前面**——国内 IP 直连、国外 IP/域名走代理，不会误伤：
+mosdns 前端模式下，国内域名在 mosdns 层已走 `forward_local` 拿到国内 IP，交到 Clash 的只有国外域名的国外 IP。因此 **GEOIP,CN 可以安全地排在 GEOSITE 前面**——匹配时先走 IP 层、再走域名层，国内 IP 一击直连，非 TLS 流量也能覆盖：
 
 ```yaml
 rules:
+  # ── 拒绝层 ──
+  - RULE-SET, AWAvenue-Ads, REJECT
+
+  # ── 直连白名单 ──
   - RULE-SET, LAN, DIRECT
-  - GEOIP, CN, DIRECT          # mosdns 前置分流后国内 IP 已确定，直接放行
-  - RULE-SET, Proxy, 🚩 默认策略
-  # 其他自定义规则插在这里
+  - RULE-SET, Direct, DIRECT
+
+  # ── IP 层：国内 IP 直连（最快路径，覆盖非 TLS 流量）──
+  - GEOIP,CN,DIRECT,no-resolve
+
+  # ── 域名层（v2fly GeoSite 属性过滤）──
+  # 国外站但有国内 CDN → 直连（如 steam CDN）
+  - GEOSITE,geolocation-!cn@cn,DIRECT
+  # 纯国外站 → 代理
+  - GEOSITE,geolocation-!cn,🚩 默认策略
+  # 国内站但仅国外可访问 → 代理（如 jd.hk）
+  - GEOSITE,geolocation-cn@!cn,🚩 默认策略
+  # 纯国内站 → 直连
+  - GEOSITE,geolocation-cn,DIRECT
+  # .cn TLD 兜底
+  - GEOSITE,tld-cn,DIRECT
+
+  # ── 兜底 ──
   - MATCH, 🚩 默认策略
 ```
 
-### 为什么标准教程把 GEOIP 放最后？
+> 必须使用 v2fly 原版 GeoSite（`geox-url.geosite: "https://testingcf.jsdelivr.net/gh/v2fly/domain-list-community@release/dlc.dat"`）。Loyalsoldier 分支已剔除 `@cn` / `@!cn` 属性，无法使用上述属性过滤写法。详见下方 GeoSite 属性过滤说明。
+
+### 为什么其它教程把 GEOIP 放最后？
 
 Fake-IP / 纯 Clash DNS 场景下，国外域名可能被国内 DNS 返回 CDN 代理的国内 IP（如 `www.google.com` 被阿里 CDN 代理）。如果 GEOIP 排在前面，Google 的国内 CDN IP 直接命中 DIRECT 直连，根本走不到域名代理规则——这就是泄露。标准教程把 GEOIP 放最后，让域名规则优先匹配，确保代理域名不被 IP 判断劫走。
 
 **本方案不适用这条规则**——mosdns 已把 DNS 分流，国内域名走 ISP DNS、国外域名走 Clash DNS，不存在"国外域名拿到国内 CDN IP"的情况。
+
+### GeoSite 属性过滤：精确分流的正确用法
+
+GeoSite 常见的 `cn` 分组（Loyalsoldier 分支）实际上是 `geolocation-cn` + `tld-cn` + dnsmasq-china-list 的大杂烩。其中 dnsmasq-china-list 收录标准是有中国 NS 服务器，43% 的域名解析结果并不在中国。更麻烦的是，一些域名同时存在于 `geolocation-cn` 和 `geolocation-!cn` 两个冲突分组中。
+
+**解决方案：使用 v2fly 原版 GeoSite + `@cn` / `@!cn` 属性过滤**
+
+```yaml
+# Clash geox-url 必须指向 v2fly 原版
+geox-url:
+  geosite: "https://testingcf.jsdelivr.net/gh/v2fly/domain-list-community@release/dlc.dat"
+```
+
+属性过滤的规则链逻辑：
+
+```text
+geolocation-!cn（整体是国外站，但部分有国内 CDN）
+  ├─ @cn  筛选 → 国内 CDN 域名 → DIRECT（如 steam CDN、alibaba CDN）
+  └─ 其余 → PROXY
+
+geolocation-cn（整体是国内站，但部分只能国外访问）
+  ├─ @!cn 筛选 → 国外才能访问 → PROXY（如 jd.hk）
+  └─ 其余 → DIRECT
+
+tld-cn（.cn 顶级域）→ DIRECT
+```
+
+这个写法利用了 GeoSite 的**树形规则**特性：`geolocation-!cn@cn` 自动包含了 `steam@cn`、`microsoft@cn` 等所有子分组的 `@cn` 域名，无需逐个手写。Loyalsoldier 分支因为剔除了 `@cn` / `@!cn` 属性，无法使用此写法。
+
+> **DNS 分流配合**：Clash 的 `nameserver` 只配置国外 DoH，国内域名在 mosdns 层已走 ISP DNS。`proxy-server-nameserver` 建议加一个国内 DNS：
+> ```yaml
+> dns:
+>   proxy-server-nameserver:
+>     - 223.5.5.5
+> ```
+> 作用是 DoH 被墙时仍能解析代理服务器域名，防止连不上代理。
 
 ### Clash DNS 设置与防泄露
 
@@ -54,6 +111,48 @@ dns:
 ```
 
 > **设为国外 DNS 会拖慢国内网速吗？** 不会。国内域名在 mosdns :53 层已走 `forward_local` → ISP DNS 直查返回，根本不进 Clash DNS。Clash 只处理 mosdns 判外的国外域名，且 DoH 查询走代理隧道加密，不经过本地 ISP。
+
+### Sniffer 配置：保留 mosdns 的国内解析结果
+
+Clash 的 sniffer 会影响 mosdns 前端模式的效果——嗅探拿到域名后如果触发 DNS 重新解析，mosdns 用 ISP DNS 解析出的中国 IP 就会被丢弃。
+
+**破坏 mosdns 的三个参数联动：**
+
+```text
+parse-pure-ip: true         → 对纯 IP 连接也嗅探 TLS SNI，拿到域名
+override-destination: true   → 将目标 IP 替换为域名，重新走 DNS 查找
+force-dns-mapping: true      → 强制用 Clash DNS 缓存（DoH 结果）覆盖 IP
+```
+
+三者联动的后果：mosdns 给的 `119.0.110.63`（中国 IP）→ sniffer 嗅探到域名 → override 替换目标为域名 → Clash DoH 重新解析 → 从国外视角返回非中国 IP → `GEOIP,CN` 匹配失败。
+
+**正确配置（前端模式下必须）：**
+
+```yaml
+sniffer:
+  enable: true
+  override-destination: false    # ← 嗅探域名仅用于规则匹配，不替换实际连接 IP
+  force-dns-mapping: false       # ← 不强制用 Clash DNS 覆盖 mosdns 的解析结果
+  parse-pure-ip: true            # ← 保留：让纯 IP 连接也能被嗅探（用于域名规则匹配）
+  sniff:
+    TLS:
+      ports: [443, 8443, 8888, 9443]
+    HTTP:
+      ports: [80, 8080-8880]
+```
+
+改动后的流程：
+
+```text
+mosdns → 119.0.110.63 (中国 IP)
+客户端发起 TCP 连接
+Clash TUN 拦截
+  ↓ sniffer 嗅探到域名（备用）
+  ↓ 规则匹配：GEOIP,CN → 目标 IP 仍是 119.0.110.63 → 命中 DIRECT
+  ↓ 实际连接直达 119.0.110.63，不再经 DoH 重新解析
+```
+
+> `parse-pure-ip: true` 保留是安全的——它只让嗅探器工作以提供域名给 GEOSITE 规则匹配，但 `override-destination: false` 保证实际 IP 不被替换。
 
 ---
 
@@ -708,5 +807,7 @@ mosdns/
 - [虚空终端 Docs](https://wiki.metacubex.one/config/)
 - [Cloudflare 优选 IP](https://github.com/XIU2/CloudflareSpeedTest)
 - [Vector + Loki 实现 mosdns 数据看板](https://icyleaf.com/2023/08/using-vector-transform-mosdns-logging-to-grafana-via-loki/#prometheus)
+- [mosdns_docker](https://github.com/Jasper-1024/mosdns_docker)
+- [Clash 中 GeoSite 分流的正确使用方式](https://www.aloxaf.com/2025/04/how_to_use_geosite/)
 
 
