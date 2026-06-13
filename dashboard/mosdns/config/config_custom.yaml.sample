@@ -351,7 +351,7 @@ plugins:
     type: sequence
     args:
       - exec: query_summary reject_aaaa
-      - exec: reject 3
+      - exec: black_hole
 
   # 黑名单拒绝
   - tag: reject_blocklist

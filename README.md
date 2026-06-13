@@ -8,6 +8,9 @@
 
 ---
 
+<details>
+<summary><b>📖 点击展开：Clash Redir-Host 零泄露配置详解 & 浏览器安全设置</b></summary>
+
 ## Clash 中 Redir-Host 及 Fake-IP 模式下零泄露的 DNS 怎么炼成？
 
 两种模式的工作流：
@@ -176,6 +179,10 @@ Chrome / Edge / Firefox 自带 DNS-over-HTTPS 功能，会绕过 mosdns 直接�
 |--------|--------|------|
 | **[dnsleaktest.com](https://dnsleaktest.com)** | **高** | 专项 DNS 检测，只测一项——域名查询从哪些 DNS 服务器出去。不混 WebRTC、不混 IP 检测，结果干净。**如果这里显示无泄露，就是没泄露。** |
 | **[whoer.net](https://whoer.net)** | 中 | DNS 检测本身准确，但它期望所有查询从同一个 DNS 服务器出去。mosdns 把国内域名走本地 DNS、国外域名走 Clash DNS，会被标记为"脆弱的"——这不是泄露，是检测模型不认分 DNS 设计。看结果时**只盯 DNS 一栏**：列出的服务器没有国内地址就没泄露。 |
+
+---
+
+</details>
 
 ---
 
@@ -529,9 +536,7 @@ mosdns start -c /etc/mosdns/config_custom.yaml -d /etc/mosdns
 cd dashboard
 # 如果 mosdns 不在 192.168.11.1:8338，需先修改 docker-compose.yaml 中 PROMETHEUS_TARGET 地址
 docker compose up -d
-docker compose up -d
 docker compose ps   # 确认所有服务状态为 healthy/running，确保部署成功
-docker compose ps
 ```
 </details>
 

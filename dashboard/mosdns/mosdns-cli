@@ -117,7 +117,7 @@ _remove_domains() {
     local before after
     before=$(wc -l < "$geo_file")
     local tmp="${geo_file}.tmp"
-    grep -vFx -f "$patterns" "$geo_file" > "$tmp"
+    awk 'NR==FNR {pat[$0]; next} /^[[:space:]]*#/ || /^[[:space:]]*$/ {print; next} !($0 in pat)' "$patterns" "$geo_file" > "$tmp"
     after=$(wc -l < "$tmp")
     local count=$((before - after))
 
